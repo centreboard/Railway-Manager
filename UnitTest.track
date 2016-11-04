@@ -1,0 +1,6 @@
+NEW::Branch1(Clockwise)
+(10,20) Straight (50, 20) Curve (60,30) Straight (60,50) Point [(50, 55), 1] (60, 60) ::END
+
+NEW:: Loop1 (Anticlockwise)
+(90, 100) Straight (20, 100) Curve (10, 110) Straight (10, 190) Curve (20, 200) Straight (90, 200) Curve (100, 190)
+Straight (100, 110) Curve ::CLOSE
