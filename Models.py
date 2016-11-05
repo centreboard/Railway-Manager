@@ -10,17 +10,17 @@ class Track(object):
     direction is defined as the direction of the loop it comes off, so will terminate at .end
     """
 
-    def __init__(self, canvas, branch, direction, start, end):
+    def __init__(self, canvas, branch, direction, start, end, groups=None):
         self.conflict = False
         self.branch = branch
         self.start = start
         self.end = end
         self.canvas = canvas
         self.direction = direction
-        self.imageIDs = self.create()
-        for id in self.imageIDs:
+        self.groups = groups if groups is not None else []
+        self.image_ids = self.create()
+        for id in self.image_ids:
             create_tool_tip(self.canvas, id, str(self))
-
 
     @property
     def coordinates(self):
@@ -33,6 +33,9 @@ class Track(object):
     def create(self):
         """Create and Return an iterable of ids of line segments that make up the image on the canvas"""
         raise NotImplementedError
+
+    def on_click(self, event):
+        pass
 
     def __repr__(self):
         return "{name}{coord}".format(name=self.__class__.__name__, coord=self.coordinates)
@@ -87,7 +90,7 @@ class Point(Track):
         self.set = 0
         super().__init__(canvas, branch, direction, start, end)
 
-        for imageID in self.imageIDs:
+        for imageID in self.image_ids:
             self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
 
     @property
@@ -122,11 +125,11 @@ class Point(Track):
 
     def draw(self):
         if self.set:
-            self.canvas.itemconfig(self.imageIDs[0], dash=[1], fill="Red", activefill="Green")
-            self.canvas.itemconfig(self.imageIDs[1], dash=[], fill="Black", activefill="Red")
+            self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red", activefill="Green")
+            self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black", activefill="Red")
         else:
-            self.canvas.itemconfig(self.imageIDs[0], dash=[], fill="Black", activefill="Red")
-            self.canvas.itemconfig(self.imageIDs[1], dash=[1], fill="Red", activefill="Green")
+            self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black", activefill="Red")
+            self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red", activefill="Green")
 
     def on_click(self, event):
         self.set = not self.set
@@ -145,7 +148,7 @@ class Crossover(Straight):
 
     def create(self):
         id1 = self.canvas.create_line(self.start, self.end)
-        id2 = self.canvas.create_line(self.altstart, self.altend)
+        id2 = self.canvas.create_line(self.altstart, self.altend, dash=1)
         ids = namedtuple("image_ids", ["main", "alt"])
         return ids(id1, id2)
 
@@ -153,3 +156,14 @@ class Crossover(Straight):
     def coordinates(self):
         return self.start, self.end, self.altstart, self.altend
 
+
+class Signal:
+    def __init__(self, canvas, pos, track_segment):
+        self.canvas = canvas
+        self.pos = pos
+        self.track_segment = track_segment
+        self.image_id = self.create()
+
+    def create(self):
+        return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
+                                       fill="Red", outline="", activeoutline="Green", width=0)

@@ -1,24 +1,32 @@
 import tkinter
 import re
 from collections import defaultdict
-from Models import Straight, Curve, Point, Crossover
+from Models import Straight, Curve, Point, Crossover, Signal
 
 
 class TrackManager(object):
     # TODO: Fix docstring for new spec
-    """A Central class for the whole layout.
-    Track is a dict of coordinates, returning a 2-tuple of pieces in order (ends, starts) if it is a termination then a
-    piece is None"""
+    """A central class for the whole layout."""
 
     def __init__(self, canvas, filename=""):
         # Create Track
         self.canvas = canvas
         self.track_branches = self.load_track(filename)
         self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
-        self.coordinate_dict = defaultdict(list)
+        self.coordinate_dict = defaultdict(self.nonenone)
         for piece in self.track_pieces:
             for coord in piece.coordinates:
-                self.coordinate_dict[coord].append(piece)
+                if self.coordinate_dict[coord][0] is None:
+                    self.coordinate_dict[coord][0] = piece
+                elif self.coordinate_dict[coord][1] is None:
+                    self.coordinate_dict[coord][1] = piece
+                else:
+                    raise Exception("Three pieces assigned to coordinate {}".format(coord))
+        self.auto_point_group()
+
+    @staticmethod
+    def nonenone():
+        return [None, None]
 
     def load_track(self, filename):
         out = defaultdict(list)
@@ -130,27 +138,41 @@ class TrackManager(object):
                                 current_track = None
                         else:
                             piece = piece_handler(text)
-        print(out)
         return out
 
-        # def iter_from(self, coord, reverse=False):
-        # TODO: Rewrite this
-        # """Iterates through track pieces, stating from a coordinate.
-        # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
-        # piece.alternate)
-        # Returns track pieces, starting with the piece at the given coords."""
-        # i = 0 if reverse else 1
-        # piece = self.track[coord][i]
-        # while piece is not None:
-        #     yield piece
-        #     coordinates = piece.next(reverse)
-        #     i = 0 if reverse else 1
-        #     piece = self.track[coordinates][i]
+    def auto_point_group(self):
+        self.point_groups = []
+        for coord, pieces in self.coordinate_dict.items():
+            if ((isinstance(pieces[0], Point) or isinstance(pieces[0], Crossover)) and
+                    (isinstance(pieces[1], Point) or isinstance(pieces[1], Crossover)) and not
+                (coord in (pieces[0].start, pieces[0].end) and
+                            coord in (pieces[1].start, pieces[1].end))):
+                if pieces[0].groups and pieces[1].groups:
+                    print(pieces, coord)
+                    #raise NotImplementedError
+                elif pieces[0].groups:
+                    pieces[0].groups[0].append(pieces[1])
+                elif pieces[1].groups:
+                    pieces[1].groups[0].append(pieces[0])
+                else:
+                    self.point_groups.append(PointGroup(pieces))
+                    # print(self.point_groups)
+
+                    # def iter_from(self, coord, reverse=False):
+                    # TODO: Rewrite this
+                    # """Iterates through track pieces, stating from a coordinate.
+                    # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
+                    # piece.alternate)
+                    # Returns track pieces, starting with the piece at the given coords."""
+                    # i = 0 if reverse else 1
+                    # piece = self.track[coord][i]
+                    # while piece is not None:
+                    #     yield piece
+                    #     coordinates = piece.next(reverse)
+                    #     i = 0 if reverse else 1
+                    #     piece = self.track[coordinates][i]
 
     def __iter__(self):
-        # Next line not needed as all pieces will join onto another, so no piece exists purely as (None, y), which
-        # break iter_from traversal
-        # self.pieces.update(y for x,y in self.track.values() if y is not None)
         for piece in self.track_pieces:
             yield piece
 
@@ -160,8 +182,46 @@ class PointManager:
 
 
 class PointGroup:
-    def __init__(self, points):
-        pass
+    def __init__(self, pieces):
+        self.all = list(pieces)
+        self.points = [x for x in self.all if isinstance(x, Point)]
+        self.crossover = [x for x in self.all if isinstance(x, Crossover)]
+        self.other = [x for x in self.all if x not in self.points or x not in self.crossover]
+        self.image_ids = []
+        self.canvases = set()
+        for item in self.all:
+            item.groups.append(self)
+            self.canvases.add(item.canvas)
+            for id in item.image_ids:
+                self.image_ids.append(id)
+                item.canvas.itemconfig(id, tag=str(self))
+        for canvas in self.canvases:
+            for id in self.image_ids:
+                canvas.tag_bind(id, "<Button-1>", self.on_click)
+        print(self.all)
+
+    def on_click(self, event):
+        print(self, "Clicked")
+        for item in self.all:
+            item.on_click(event)
+
+    def append(self, other):
+        self.all.append(other)
+        if isinstance(other, Point):
+            self.points.append(other)
+        elif isinstance(other, Crossover):
+            self.crossover.append(other)
+        else:
+            self.other.append(other)
+        other.groups.append(self)
+        self.canvases.add(other.canvas)  # Adding to set if not in it
+        for id in other.image_ids:
+            self.image_ids.append(id)
+            other.canvas.itemconfig(id, tag=str(self))
+            other.canvas.tag_bind(id, "<Button-1>", self.on_click)
+
+    def __repr__(self):
+        return "PointGroup({})".format(self.all)
 
 
 class TrackSyntaxError(Exception):
@@ -173,8 +233,8 @@ if __name__ == "__main__":
     top.wm_title("Railway Manager")
     C = tkinter.Canvas(top, bg="blue", height=600, width=1000)
     track_manager = TrackManager(C, "Loft.track")
-    print(track_manager.track_pieces)
-
+    # print(track_manager.track_pieces)
+    test_lamp = Signal(C, (500, 300), None)
     C.pack()
     top.mainloop()
     print("Done")
