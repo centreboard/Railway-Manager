@@ -144,13 +144,27 @@ class Crossover(Straight):
     def __init__(self, canvas, branch, direction, start, end, altstart, altend):
         self.altstart = altstart
         self.altend = altend
+        self.set = False
         super().__init__(canvas, branch, direction, start, end)
 
     def create(self):
-        id1 = self.canvas.create_line(self.start, self.end)
-        id2 = self.canvas.create_line(self.altstart, self.altend, dash=1)
+        id1 = self.canvas.create_line(self.start, self.end, activefill="Red")
+        id2 = self.canvas.create_line(self.altstart, self.altend, dash=1, fill="Red", activefill="Green")
         ids = namedtuple("image_ids", ["main", "alt"])
         return ids(id1, id2)
+
+    def draw(self):
+        if self.set:
+            self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red", activefill="Green")
+            self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black", activefill="Red")
+        else:
+            self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black", activefill="Red")
+            self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red", activefill="Green")
+
+    def on_click(self, event):
+        self.set = not self.set
+        print("Set:", self, self.set)
+        self.draw()
 
     @property
     def coordinates(self):
