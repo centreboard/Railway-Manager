@@ -37,6 +37,9 @@ class Track(object):
     def on_click(self, event):
         pass
 
+    def hover(self, event):
+        pass
+
     def __repr__(self):
         return "{name}{coord}".format(name=self.__class__.__name__, coord=self.coordinates)
 
@@ -92,6 +95,8 @@ class Point(Track):
 
         for imageID in self.image_ids:
             self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
+            self.canvas.tag_bind(imageID, "<Enter>", self.hover, "+")
+            self.canvas.tag_bind(imageID, "<Leave>", self.hover, "+")
 
     @property
     def coordinates(self):
@@ -115,56 +120,75 @@ class Point(Track):
                 return self.end
 
     def create(self):
-        main_id = self.canvas.create_line(self.start, self.end, activefill="Red")
+        main_id = self.canvas.create_line(self.start, self.end)
         if self.facing:
-            alt_id = self.canvas.create_line(self.start, self.alternate, dash=1, fill="Red", activefill="Green")
+            alt_id = self.canvas.create_line(self.start, self.alternate, dash=1, fill="Red")
         else:
-            alt_id = self.canvas.create_line(self.end, self.alternate, dash=1, fill="Red", activefill="Green")
+            alt_id = self.canvas.create_line(self.end, self.alternate, dash=1, fill="Red")
         ids = namedtuple("image_ids", ["main", "alt"])
         return ids(main_id, alt_id)
 
     def draw(self):
         if self.set:
-            self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red", activefill="Green")
-            self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black", activefill="Red")
+            self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red")
+            self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black")
         else:
-            self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black", activefill="Red")
-            self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red", activefill="Green")
+            self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black")
+            self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red")
 
     def on_click(self, event):
         self.set = not self.set
         print("Set:", self, self.set)
         self.draw()
+
+    def hover(self, event):
+        #Enter is type 7, leave is type 8
+        if event.type == "7":
+            if self.set:
+                self.canvas.itemconfig(self.image_ids[0], fill="Green", width=1.5)
+                self.canvas.itemconfig(self.image_ids[1], fill="Red", width=1.5)
+            else:
+                self.canvas.itemconfig(self.image_ids[0], fill="Red", width=1.5)
+                self.canvas.itemconfig(self.image_ids[1], fill="Green", width=1.5)
+        elif event.type == "8":
+            if self.set:
+                self.canvas.itemconfig(self.image_ids[0], fill="Red", width=1)
+                self.canvas.itemconfig(self.image_ids[1], fill="Black", width=1)
+            else:
+                self.canvas.itemconfig(self.image_ids[0], fill="Black", width=1)
+                self.canvas.itemconfig(self.image_ids[1], fill="Red", width=1)
+        else:
+            print("Unhandled event", event, event.type, event.type in ("7", "8"), self.set)
 
     def __repr__(self):
         return "{repr}, {facing})".format(repr=super().__repr__()[:-1], facing=self.facing)
 
 
-class Crossover(Straight):
+class Crossover(Point):
     def __init__(self, canvas, branch, direction, start, end, altstart, altend):
         self.altstart = altstart
         self.altend = altend
         self.set = False
-        super().__init__(canvas, branch, direction, start, end)
+        super().__init__(canvas, branch, direction, start, end, None)
 
     def create(self):
-        id1 = self.canvas.create_line(self.start, self.end, activefill="Red")
-        id2 = self.canvas.create_line(self.altstart, self.altend, dash=1, fill="Red", activefill="Green")
+        id1 = self.canvas.create_line(self.start, self.end)
+        id2 = self.canvas.create_line(self.altstart, self.altend, dash=1, fill="Red")
         ids = namedtuple("image_ids", ["main", "alt"])
         return ids(id1, id2)
 
-    def draw(self):
-        if self.set:
-            self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red", activefill="Green")
-            self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black", activefill="Red")
-        else:
-            self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black", activefill="Red")
-            self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red", activefill="Green")
-
-    def on_click(self, event):
-        self.set = not self.set
-        print("Set:", self, self.set)
-        self.draw()
+    # def draw(self):
+    #     if self.set:
+    #         self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red")
+    #         self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black")
+    #     else:
+    #         self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black")
+    #         self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red")
+    #
+    # def on_click(self, event):
+    #     self.set = not self.set
+    #     print("Set:", self, self.set)
+    #     self.draw()
 
     @property
     def coordinates(self):
@@ -177,7 +201,20 @@ class Signal:
         self.pos = pos
         self.track_segment = track_segment
         self.image_id = self.create()
+        self.set = False
+        self.canvas.tag_bind(self.image_id, "<Button-1>", self.on_click)
 
     def create(self):
         return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
                                        fill="Red", outline="", activeoutline="Green", width=0)
+
+    def on_click(self, event):
+        #TODO: Check can be set with segment
+        self.set = not self.set
+        self.draw()
+
+    def draw(self):
+        if self.set:
+            self.canvas.itemconfig(self.image_id, fill = "Green")
+        else:
+            self.canvas.itemconfig(self.image_id, fill="Red")

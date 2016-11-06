@@ -74,7 +74,7 @@ class TrackManager(object):
                 elif line.startswith("NEW::"):
                     # A new track segment. Should not have coordinates or pieces on this line.
                     if current_track is not None:
-                        raise TrackSyntaxError("NEW:: defined without closure")
+                        raise TrackSyntaxError(line, "NEW:: defined without closure")
                     else:
                         current_track = track_name_re.findall(line)[0]
                         direction_txt = re.findall(r"{}\s*\(([^(]*)\)".format(current_track), line)
@@ -85,7 +85,7 @@ class TrackManager(object):
                         elif direction_txt[0].lower() in ("anticlockwise", "-1"):
                             direction = -1
                         else:
-                            raise TrackSyntaxError("Invalid direction: {}".format(direction_txt[0]))
+                            raise TrackSyntaxError(line, "Invalid direction: {}".format(direction_txt[0]))
                         # Reset for new track
                         last_coord = (None, None)
                         piece = None
@@ -93,14 +93,15 @@ class TrackManager(object):
                         print(current_track, direction)
                 else:
                     if current_track is None:
-                        raise TrackSyntaxError("No track segment started")
+                        raise TrackSyntaxError(line, "No track segment started")
                     coord_and_pieces = space_split_re.findall(line)
+                    print(coord_and_pieces)
 
                     # If it is the start. For subsequent lines this is skipped
                     if last_coord[0] is None:
                         last_coord = coord_handler(coord_and_pieces[0])
                         if last_coord[0] is None:
-                            raise TrackSyntaxError("No starting coordinate given")
+                            raise TrackSyntaxError(line, "No starting coordinate given")
                         coord_and_pieces = coord_and_pieces[1:]
 
                     for text in coord_and_pieces:
@@ -111,9 +112,9 @@ class TrackManager(object):
                         if text.startswith("("):
                             next_coord = coord_handler(text)
                             if next_coord[0] is None:
-                                raise TrackSyntaxError("Invalid coordinate given")
+                                raise TrackSyntaxError(line, "Invalid coordinate given", text)
                             if piece is None:
-                                raise TrackSyntaxError("No piece between coordinates")
+                                raise TrackSyntaxError(line, "No piece between coordinates", text)
                             # All track pieces are start, end then optional further arguments
                             out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
                                                             next_coord, *arguments))
@@ -124,12 +125,12 @@ class TrackManager(object):
                             arguments = argument_handler(text)
                         elif text == "::END":
                             if piece is not None:
-                                raise TrackSyntaxError("::END called before final coordinates")
+                                raise TrackSyntaxError(line, "::END called before final coordinates", text)
                             else:
                                 current_track = None
                         elif text == "::CLOSE":
                             if piece is None:
-                                raise TrackSyntaxError("::CLOSE called without piece")
+                                raise TrackSyntaxError(line, "::CLOSE called without piece", text)
                             else:
                                 end_coord = out[current_track][0].start
                                 # noinspection PyUnboundLocalVariable
@@ -198,12 +199,19 @@ class PointGroup:
         for canvas in self.canvases:
             for id in self.image_ids:
                 canvas.tag_bind(id, "<Button-1>", self.on_click)
+# Currently hover will be called twice for point the mouse is over, the second call having no affect on display
+                canvas.tag_bind(id, "<Enter>", self.hover, "+")
+                canvas.tag_bind(id, "<Leave>", self.hover, "+")
         print(self.all)
 
     def on_click(self, event):
         print(self, "Clicked")
         for item in self.all:
             item.on_click(event)
+
+    def hover(self, event):
+        for item in self.all:
+            item.hover(event)
 
     def append(self, other):
         self.all.append(other)
@@ -219,22 +227,51 @@ class PointGroup:
             self.image_ids.append(id)
             other.canvas.itemconfig(id, tag=str(self))
             other.canvas.tag_bind(id, "<Button-1>", self.on_click)
+            other.canvas.tag_bind(id, "<Enter>", self.hover, "+")
+            other.canvas.tag_bind(id, "<Leave>", self.hover, "+")
 
     def __repr__(self):
         return "PointGroup({})".format(self.all)
 
 
 class TrackSyntaxError(Exception):
-    pass
+    def __init__(self, line, string, text=""):
+        super().__init__(string, line, text)
+
+
+class ResizingCanvas(tkinter.Canvas):
+    """From http://stackoverflow.com/a/22837522
+    A canvas that rescales everything on it as the window size is altered."""
+    def __init__(self,parent,**kwargs):
+        super().__init__(parent,**kwargs)
+        self.bind("<Configure>", self.on_resize)
+        self.height = self.winfo_reqheight()
+        self.width = self.winfo_reqwidth()
+        self.n = 0
+
+    def on_resize(self,event):
+        # determine the ratio of old width/height to new width/height
+        wscale = float(event.width)/self.width
+        hscale = float(event.height)/self.height
+        self.n += 1
+        print("Resize", self.n, event.width == self.width, event.height, self.height, wscale, hscale)
+        self.width = event.width
+        self.height = event.height
+        # resize the canvas
+        # self.config(width=self.width, height=self.height)
+        # rescale all the objects tagged with the "all" tag
+        self.scale("all",0,0,wscale,hscale)
 
 
 if __name__ == "__main__":
-    top = tkinter.Tk()
-    top.wm_title("Railway Manager")
-    C = tkinter.Canvas(top, bg="blue", height=600, width=1000)
+    root = tkinter.Tk()
+    myframe = tkinter.Frame(root)
+    myframe.pack(fill="both", expand="yes")
+    root.wm_title("Railway Manager")
+    C = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
     track_manager = TrackManager(C, "Loft.track")
     # print(track_manager.track_pieces)
     test_lamp = Signal(C, (500, 300), None)
-    C.pack()
-    top.mainloop()
+    C.pack(fill="both", expand="yes")
+    root.mainloop()
     print("Done")
