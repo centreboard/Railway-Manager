@@ -2,6 +2,7 @@ import tkinter
 import re
 from collections import defaultdict
 from Models import Straight, Curve, Point, Crossover, Signal
+from ResizingCanvas import ResizingCanvas
 
 
 class TrackManager(object):
@@ -32,7 +33,7 @@ class TrackManager(object):
         out = defaultdict(list)
         track_name_re = re.compile(r"NEW::\s*([^(]*)\(")
         # Splits at spaces outside of brackets, and also at outermost brackets
-        space_split_re = re.compile(r"[^:\s\[(]+|\[[^\]]*]|\([^)]*\)|::.*")
+        space_split_re = re.compile(r"[^:\s\[(\"]+|\"[^\"]+\"|\[[^\]]*]|\([^)]*\)|::.*")
         comma_split_re = re.compile(r"\([^)]*\)|[^\s,[(\]]+")
 
         def coord_handler(text):
@@ -89,6 +90,7 @@ class TrackManager(object):
                         # Reset for new track
                         last_coord = (None, None)
                         piece = None
+                        label = ""
                         arguments = []
                         print(current_track, direction)
                 else:
@@ -117,9 +119,10 @@ class TrackManager(object):
                                 raise TrackSyntaxError(line, "No piece between coordinates", text)
                             # All track pieces are start, end then optional further arguments
                             out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
-                                                            next_coord, *arguments))
+                                                            next_coord, *arguments, label=label))
                             last_coord = next_coord
                             piece = None
+                            label = ""
                             arguments = []
                         elif text.startswith("["):
                             arguments = argument_handler(text)
@@ -137,6 +140,8 @@ class TrackManager(object):
                                 out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
                                                                 end_coord, *arguments))
                                 current_track = None
+                        elif text.startswith("\""):
+                            label = text.strip("\"")
                         else:
                             piece = piece_handler(text)
         return out
@@ -237,30 +242,6 @@ class PointGroup:
 class TrackSyntaxError(Exception):
     def __init__(self, line, string, text=""):
         super().__init__(string, line, text)
-
-
-class ResizingCanvas(tkinter.Canvas):
-    """From http://stackoverflow.com/a/22837522
-    A canvas that rescales everything on it as the window size is altered."""
-    def __init__(self,parent,**kwargs):
-        super().__init__(parent,**kwargs)
-        self.bind("<Configure>", self.on_resize)
-        self.height = self.winfo_reqheight()
-        self.width = self.winfo_reqwidth()
-        self.n = 0
-
-    def on_resize(self,event):
-        # determine the ratio of old width/height to new width/height
-        wscale = float(event.width)/self.width
-        hscale = float(event.height)/self.height
-        self.n += 1
-        print("Resize", self.n, event.width == self.width, event.height, self.height, wscale, hscale)
-        self.width = event.width
-        self.height = event.height
-        # resize the canvas
-        # self.config(width=self.width, height=self.height)
-        # rescale all the objects tagged with the "all" tag
-        self.scale("all",0,0,wscale,hscale)
 
 
 if __name__ == "__main__":

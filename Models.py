@@ -10,7 +10,7 @@ class Track(object):
     direction is defined as the direction of the loop it comes off, so will terminate at .end
     """
 
-    def __init__(self, canvas, branch, direction, start, end, groups=None):
+    def __init__(self, canvas, branch, direction, start, end, groups=None, label=""):
         self.conflict = False
         self.branch = branch
         self.start = start
@@ -18,6 +18,7 @@ class Track(object):
         self.canvas = canvas
         self.direction = direction
         self.groups = groups if groups is not None else []
+        self.label = label
         self.image_ids = self.create()
         for id in self.image_ids:
             create_tool_tip(self.canvas, id, str(self))
@@ -43,6 +44,12 @@ class Track(object):
     def __repr__(self):
         return "{name}{coord}".format(name=self.__class__.__name__, coord=self.coordinates)
 
+    def __str__(self):
+        if self.label:
+            return "{name} {label}".format(name=self.__class__.__name__, label=self.label)
+        else:
+            return self.__repr__()
+
 
 class Straight(Track):
     # def __init__(self, canvas, branch, start, end, direction=0):
@@ -55,7 +62,7 @@ class Straight(Track):
 
 
 class Curve(Track):
-    def __init__(self, canvas, branch, direction, start, end, left_right="", factor=4):
+    def __init__(self, canvas, branch, direction, start, end, left_right="", factor=4, label=""):
         self.factor = factor / 10
         if str(direction).lower() in ("1", "clockwise"):
             direction = 1
@@ -71,7 +78,7 @@ class Curve(Track):
             self.left_right = l_r
         else:
             raise Exception("Curve not defined as L or R")
-        super().__init__(canvas, branch, direction, start, end)
+        super().__init__(canvas, branch, direction, start, end, label=label)
 
 
     def create(self):
@@ -87,11 +94,11 @@ class Curve(Track):
 
 
 class Point(Track):
-    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1):
+    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1, label=""):
         self.alternate = alternate
         self.facing = facing
         self.set = 0
-        super().__init__(canvas, branch, direction, start, end)
+        super().__init__(canvas, branch, direction, start, end, label=label)
 
         for imageID in self.image_ids:
             self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
@@ -165,11 +172,11 @@ class Point(Track):
 
 
 class Crossover(Point):
-    def __init__(self, canvas, branch, direction, start, end, altstart, altend):
+    def __init__(self, canvas, branch, direction, start, end, altstart, altend, label=""):
         self.altstart = altstart
         self.altend = altend
         self.set = False
-        super().__init__(canvas, branch, direction, start, end, None)
+        super().__init__(canvas, branch, direction, start, end, None, label=label)
 
     def create(self):
         id1 = self.canvas.create_line(self.start, self.end)
