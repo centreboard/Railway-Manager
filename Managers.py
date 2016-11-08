@@ -9,9 +9,10 @@ class TrackManager(object):
     # TODO: Fix docstring for new spec
     """A central class for the whole layout."""
 
-    def __init__(self, canvas, filename=""):
+    def __init__(self, canvas, filename="", auto_group=True):
         # Create Track
         self.canvas = canvas
+        self.track_labels = {}
         self.track_branches = self.load_track(filename)
         self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
         self.coordinate_dict = defaultdict(self.nonenone)
@@ -23,7 +24,9 @@ class TrackManager(object):
                     self.coordinate_dict[coord][1] = piece
                 else:
                     raise Exception("Three pieces assigned to coordinate {}".format(coord))
-        self.auto_point_group()
+        self.point_groups = []
+        if auto_group:
+            self.auto_point_group()
 
     @staticmethod
     def nonenone():
@@ -118,8 +121,11 @@ class TrackManager(object):
                             if piece is None:
                                 raise TrackSyntaxError(line, "No piece between coordinates", text)
                             # All track pieces are start, end then optional further arguments
-                            out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
-                                                            next_coord, *arguments, label=label))
+                            # noinspection PyUnboundLocalVariable
+                            new_piece = piece(self.canvas, current_track, direction, last_coord,
+                                              next_coord, *arguments, label=label)
+                            out[current_track].append(new_piece)
+                            self.track_labels[label] = new_piece
                             last_coord = next_coord
                             piece = None
                             label = ""
@@ -142,20 +148,21 @@ class TrackManager(object):
                                 current_track = None
                         elif text.startswith("\""):
                             label = text.strip("\"")
+                            if label in self.track_labels:
+                                raise TrackSyntaxError(line, "Repeated Label", label)
                         else:
                             piece = piece_handler(text)
         return out
 
     def auto_point_group(self):
-        self.point_groups = []
         for coord, pieces in self.coordinate_dict.items():
             if ((isinstance(pieces[0], Point) or isinstance(pieces[0], Crossover)) and
                     (isinstance(pieces[1], Point) or isinstance(pieces[1], Crossover)) and not
                 (coord in (pieces[0].start, pieces[0].end) and
-                            coord in (pieces[1].start, pieces[1].end))):
+                         coord in (pieces[1].start, pieces[1].end))):
                 if pieces[0].groups and pieces[1].groups:
                     print(pieces, coord)
-                    #raise NotImplementedError
+                    raise Exception("Autogroupoing error: both already in groups")
                 elif pieces[0].groups:
                     pieces[0].groups[0].append(pieces[1])
                 elif pieces[1].groups:
@@ -239,9 +246,81 @@ class PointGroup:
         return "PointGroup({})".format(self.all)
 
 
+class SignalManager:
+    def __init__(self, trackmanager, canvas, filename):
+        self.track_manager = trackmanager
+        self.canvas = canvas
+        self.all = {}
+        self.load(filename)
+
+    def load(self, filename):
+        signals_define = False
+        # Line of the form "SignalLabel":: Pos["Label" Start/End/Alternate/tart/end Left/Right] Red["Label" 0/1 &/|]
+        signal_definition_re = re.compile(r"\s*".join(
+            (r'"(?P<signal_label>[^"]+)"::', 'Pos', r'\[', r'"(?P<pos_label>[^"]+)"',
+             r'(?P<start>(Start)|(End)|(Alt((ernate)|(start)|(end))?))?', r'(?P<position>(Left)|(Right))?', r'\]',
+             r'(Red', r'\[', r'(?P<red_condition>(\(*\s*"[^"]+"\s+[0-1]\s*\)*\s*(&|\|)?\s*)*)',
+             r'\])?')))
+        label_re = re.compile(r'"[^"]*"')
+        with open(filename) as f:
+            for line in f:
+                print(line)
+                line = line.strip("\n").strip()
+                if not line:
+                    continue
+                elif line.startswith("SIGNALS::"):
+                    signals_define = True
+                elif line.startswith("::END"):
+                    signals_define = False
+                elif signals_define:
+                    m = signal_definition_re.fullmatch(line)
+                    if m is None:
+                        raise AccessorySyntaxError(line, "Signal definition not of correct form")
+                    groupdict = m.groupdict()
+                    if groupdict["position"] is None:
+                        groupdict["position"] = "Left"
+                    if groupdict["start"] is None:
+                        groupdict["start"] = "Start"
+                    elif groupdict["start"] == "Alt":
+                        groupdict["start"] = "Alternate"
+                    track_segment = self.track_manager.track_labels[groupdict["pos_label"]]
+                    track_pos = getattr(track_segment, groupdict["start"].lower())
+                    if groupdict["start"] == "Start":
+                        track_dir = (track_segment.end[0] - track_pos[0], track_segment.end[1] - track_pos[1])
+                    elif groupdict["start"] == "Alternate" and isinstance(track_segment,
+                                                                          Point) and not track_segment.facing:
+                        track_dir = (track_pos[0] - track_segment.end[0], track_pos[1] - track_segment.end[1])
+                    else:
+                        track_dir = (track_pos[0] - track_segment.start[0], track_pos[1] - track_segment.start[1])
+                    # Normalise
+                    track_dir_size = (track_dir[0] ** 2 + track_dir[1] ** 2) ** 0.5
+                    track_dir = (track_dir[0] / track_dir_size, track_dir[1] / track_dir_size)
+                    print(track_dir)
+                    if groupdict["position"] == "Right":
+                        # Normal by (x,y) => (-y, x)
+                        light_pos = (track_pos[0] - 10 * track_dir[1], track_pos[1] + 10 * track_dir[0])
+                    else:
+                        light_pos = (track_pos[0] + 10 * track_dir[1], track_pos[1] - 10 * track_dir[0])
+                    red_condition = groupdict["red_condition"]
+                    red_condition = red_condition.replace("&", "and").replace("|", "or")
+                    for label in set(label_re.findall(red_condition)):
+                        red_condition = red_condition.replace(label,
+                                                              "self.track_manager.track_labels[{}]".format(label))
+                    red_condition = re.sub(r'("[^"]*"\])\s*([0-1])', r'\1.set == \2', red_condition)
+                    if red_condition:
+                        print(red_condition, eval(red_condition))
+                    self.all[groupdict["signal_label"]] = Signal(self.canvas, light_pos, self.track_manager,
+                                                                 red_condition)
+
+
+
 class TrackSyntaxError(Exception):
     def __init__(self, line, string, text=""):
         super().__init__(string, line, text)
+
+
+class AccessorySyntaxError(Exception):
+    pass
 
 
 if __name__ == "__main__":
@@ -251,8 +330,7 @@ if __name__ == "__main__":
     root.wm_title("Railway Manager")
     C = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
     track_manager = TrackManager(C, "Loft.track")
-    # print(track_manager.track_pieces)
-    test_lamp = Signal(C, (500, 300), None)
+    signal_manager = SignalManager(track_manager, C, "Loft.accessory")
     C.pack(fill="both", expand="yes")
     root.mainloop()
     print("Done")

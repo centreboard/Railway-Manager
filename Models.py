@@ -203,25 +203,36 @@ class Crossover(Point):
 
 
 class Signal:
-    def __init__(self, canvas, pos, track_segment):
+    def __init__(self, canvas, pos, track_manager, red_conditions):
         self.canvas = canvas
         self.pos = pos
-        self.track_segment = track_segment
+        self.track_manager = track_manager
         self.image_id = self.create()
         self.set = False
+        self.red_conditions = red_conditions
         self.canvas.tag_bind(self.image_id, "<Button-1>", self.on_click)
 
     def create(self):
         return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
-                                       fill="Red", outline="", activeoutline="Green", width=0)
+                                       fill="Red", outline="Red", width=0)
+
+    def interlock_red(self):
+        if self.red_conditions and eval(self.red_conditions):
+            self.canvas.itemconfig(self.image_id, fill="Red", width=4)
+            self.canvas.after(100, lambda: self.canvas.itemconfig(self.image_id, width=0))
+            return False
+        return True
 
     def on_click(self, event):
         #TODO: Check can be set with segment
-        self.set = not self.set
+        if self.set:
+            self.set = 0
+        else:
+            self.set = self.interlock_red()
         self.draw()
 
     def draw(self):
         if self.set:
-            self.canvas.itemconfig(self.image_id, fill = "Green")
+            self.canvas.itemconfig(self.image_id, fill="Green", outline="Green")
         else:
-            self.canvas.itemconfig(self.image_id, fill="Red")
+            self.canvas.itemconfig(self.image_id, fill="Red", outline="Red")
