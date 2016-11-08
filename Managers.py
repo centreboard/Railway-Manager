@@ -8,6 +8,7 @@ from ResizingCanvas import ResizingCanvas
 class TrackManager(object):
     # TODO: Fix docstring for new spec
     """A central class for the whole layout."""
+
     def __init__(self, canvas, filename="", auto_group=True):
         # Create Track
         self.canvas = canvas
@@ -160,7 +161,7 @@ class TrackManager(object):
         for coord, pieces in self.coordinate_dict.items():
             if ((isinstance(pieces[0], Point) or isinstance(pieces[0], Crossover)) and
                     (isinstance(pieces[1], Point) or isinstance(pieces[1], Crossover)) and not
-            (coord in (pieces[0].start, pieces[0].end) and coord in (pieces[1].start, pieces[1].end))):
+                    (coord in (pieces[0].start, pieces[0].end) and coord in (pieces[1].start, pieces[1].end))):
                 if pieces[0].groups and pieces[1].groups:
                     # TODO: join groups together for more complex layout options.
                     print(pieces, coord)
@@ -173,19 +174,19 @@ class TrackManager(object):
                     self.groups.append(TrackGroup(pieces))
                     # print(self.point_groups)
 
-                    # def iter_from(self, coord, reverse=False):
-                    # TODO: Rewrite this
-                    # """Iterates through track pieces, stating from a coordinate.
-                    # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
-                    # piece.alternate)
-                    # Returns track pieces, starting with the piece at the given coords."""
-                    # i = 0 if reverse else 1
-                    # piece = self.track[coord][i]
-                    # while piece is not None:
-                    #     yield piece
-                    #     coordinates = piece.next(reverse)
-                    #     i = 0 if reverse else 1
-                    #     piece = self.track[coordinates][i]
+    # def iter_from(self, coord, reverse=False):
+    # TODO: Rewrite this
+    # """Iterates through track pieces, stating from a coordinate.
+    # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
+    # piece.alternate)
+    # Returns track pieces, starting with the piece at the given coords."""
+    # i = 0 if reverse else 1
+    # piece = self.track[coord][i]
+    # while piece is not None:
+    #     yield piece
+    #     coordinates = piece.next(reverse)
+    #     i = 0 if reverse else 1
+    #     piece = self.track[coordinates][i]
 
     def __iter__(self):
         for piece in self.track_pieces:
@@ -210,16 +211,14 @@ class TrackGroup:
         for item in self.all:
             item.groups.append(self)
             self.canvases.add(item.canvas)
-            for id in item.image_ids:
-                self.image_ids.append(id)
-                item.canvas.itemconfig(id, tag=str(self))
-        for canvas in self.canvases:
-            for id in self.image_ids:
-                canvas.tag_bind(id, "<Button-1>", self.on_click)
+            for image_id in item.image_ids:
+                self.image_ids.append(image_id)
+                item.canvas.itemconfig(image_id, tag=str(self))
+                item.canvas.tag_bind(image_id, "<Button-1>", self.on_click)
                 # Currently hover will be called twice for the piece the mouse is over, the second call having no affect
                 #  on the display
-                canvas.tag_bind(id, "<Enter>", self.hover, "+")
-                canvas.tag_bind(id, "<Leave>", self.hover, "+")
+                item.canvas.tag_bind(image_id, "<Enter>", self.hover, "+")
+                item.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 
     def on_click(self, event):
         labels = []
@@ -246,12 +245,12 @@ class TrackGroup:
             self.other.append(other)
         other.groups.append(self)
         self.canvases.add(other.canvas)  # Adding to set if not in it
-        for id in other.image_ids:
-            self.image_ids.append(id)
-            other.canvas.itemconfig(id, tag=str(self))
-            other.canvas.tag_bind(id, "<Button-1>", self.on_click)
-            other.canvas.tag_bind(id, "<Enter>", self.hover, "+")
-            other.canvas.tag_bind(id, "<Leave>", self.hover, "+")
+        for image_id in other.image_ids:
+            self.image_ids.append(image_id)
+            other.canvas.itemconfig(image_id, tag=str(self))
+            other.canvas.tag_bind(image_id, "<Button-1>", self.on_click)
+            other.canvas.tag_bind(image_id, "<Enter>", self.hover, "+")
+            other.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 
     def __repr__(self):
         return "TrackGroup({})".format(self.all)
@@ -280,7 +279,7 @@ class SignalManager:
         with open(filename) as f:
             for line in f:
                 line = line.strip("\n").strip()
-                if not line:
+                if not line or line.startswith("#"):
                     continue
                 elif line.startswith("SIGNALS::"):
                     signals_define = True

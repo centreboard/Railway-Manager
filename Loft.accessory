@@ -1,3 +1,10 @@
+# Current key words are SIGNALS:: followed by individual signal definitions on new lines. ::END to finish section
+# Each line should be of the format
+# "SignalLabel":: Pos["TrackLabel"] Red[Conditions]
+# where Conditions is a sequence of "TrackLabel" 0/1 &/| with optional parentheses () to group statements
+# 0 for track piece not set, 1 for track piece set, & for 'and', | for 'or'. "TrackLabel" is a label previously defined
+# in .track
+
 SIGNALS::
 
 "R2a":: Pos["R2a"] Red["R2a" 0 & "R1a" 1]

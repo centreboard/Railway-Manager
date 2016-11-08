@@ -80,7 +80,6 @@ class Curve(Track):
             raise Exception("Curve not defined as L or R")
         super().__init__(canvas, branch, direction, start, end, label=label)
 
-
     def create(self):
         tangent = (self.start[1] - self.end[1], self.end[0] - self.start[0])
         midpoint = ((self.start[0] + self.end[0])/2, (self.start[1] + self.end[1])/2)
@@ -216,6 +215,7 @@ class Signal:
             return False
         return True
 
+    # noinspection PyUnusedLocal
     def on_click(self, event):
         """Checks and changes signal state"""
         if self.set:

@@ -8,6 +8,7 @@ class ToolTip(object):
         self.tipwindow = None
         self.id = None
         self.x = self.y = 0
+        self.text = ""
 
     def showtip(self, text):
         """Display text in tooltip window"""
@@ -24,6 +25,7 @@ class ToolTip(object):
         tw.wm_geometry("+%d+%d" % (x, y))
         try:
             # For Mac OS
+            # noinspection PyProtectedMember
             tw.tk.call("::tk::unsupported::MacWindowStyle",
                        "style", tw._w,
                        "help", "noActivates")
@@ -41,14 +43,16 @@ class ToolTip(object):
             tw.destroy()
 
 
-def create_tool_tip(widget, id, text):
-    toolTip = ToolTip(widget)
+def create_tool_tip(widget, image_id, text):
+    tool_tip = ToolTip(widget)
 
+    # noinspection PyUnusedLocal
     def enter(event):
-        toolTip.showtip(text)
+        tool_tip.showtip(text)
 
+    # noinspection PyUnusedLocal
     def leave(event):
-        toolTip.hidetip()
+        tool_tip.hidetip()
 
-    widget.tag_bind(id, '<Enter>', enter)
-    widget.tag_bind(id, '<Leave>', leave)
+    widget.tag_bind(image_id, '<Enter>', enter)
+    widget.tag_bind(image_id, '<Leave>', leave)

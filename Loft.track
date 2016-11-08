@@ -1,3 +1,12 @@
+# Current key words are NEW:: followed by section name then direction (clockwise/anticlockwise) in brackets
+# Starting on a new line the track is then defined by a sequence
+# (x, y) Piece[Arguments] "Label" (x, y) Piece etc.
+# where (x, y) are coordinates for the start/end of a piece, with the next piece starting where the previous finished.
+# Piece can be Straight(St), Curve(Cv), Point(Pt) or Crossover(xx)
+# [Arguments] are extra details, which may be optional, e.g. a curve defualts in the track direction
+# "Label" is an optional unique track label for the piece to interact with accessories and neater printing.
+
+
 NEW::UpFast(Clockwise)
 (50, 25) Straight (950, 25) Curve[R] (975, 50) Straight (975, 350) Point[(950, 375), 1] "R5a" (975, 400) Straight (975, 550)
 Curve[R] (950, 575) Straight (825, 575) Point[(800, 550), 1] "R2a" (800, 575) Straight (750, 575) Point[(725, 550), 0]
