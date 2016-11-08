@@ -2,8 +2,8 @@ SIGNALS::
 
 "L1":: Pos["R2a"] Red["R2a" 0 & "R1a" 1]
 
-"L2":: Pos["R4a"] Red["R4a" 1 & "R3b" 1| "R4a" 0 & ("R3c" 1 | "R2b" 1)]
+"L2":: Pos["R4a"] Red["R4a" 1 & "R3b" 1 | "R4a" 0 & ("R3c" 1 | "R2b" 1)]
 
 "L3":: Pos["R1b"] Red["R1b" 1 | "R2c" 1| "R3a" 1]
 
-"L4":: Pos["St1"] Red["St1" 1| "R3b" 0 & "R4b" 0 & "C2b" 1]
+"L4":: Pos["St1"] Red["St1" 1 | "R3b" 0 & "R4b" 0 & "C2b" 1]

@@ -24,7 +24,7 @@ class TrackManager(object):
                     self.coordinate_dict[coord][1] = piece
                 else:
                     raise Exception("Three pieces assigned to coordinate {}".format(coord))
-        self.point_groups = []
+        self.groups = []
         if auto_group:
             self.auto_point_group()
 
@@ -100,7 +100,6 @@ class TrackManager(object):
                     if current_track is None:
                         raise TrackSyntaxError(line, "No track segment started")
                     coord_and_pieces = space_split_re.findall(line)
-                    print(coord_and_pieces)
 
                     # If it is the start. For subsequent lines this is skipped
                     if last_coord[0] is None:
@@ -133,11 +132,13 @@ class TrackManager(object):
                         elif text.startswith("["):
                             arguments = argument_handler(text)
                         elif text == "::END":
+                            # End of the branch
                             if piece is not None:
                                 raise TrackSyntaxError(line, "::END called before final coordinates", text)
                             else:
                                 current_track = None
                         elif text == "::CLOSE":
+                            # Close a track loop
                             if piece is None:
                                 raise TrackSyntaxError(line, "::CLOSE called without piece", text)
                             else:
@@ -162,13 +163,13 @@ class TrackManager(object):
                          coord in (pieces[1].start, pieces[1].end))):
                 if pieces[0].groups and pieces[1].groups:
                     print(pieces, coord)
-                    raise Exception("Autogroupoing error: both already in groups")
+                    raise Exception("Autogrouping error: both already in groups")
                 elif pieces[0].groups:
                     pieces[0].groups[0].append(pieces[1])
                 elif pieces[1].groups:
                     pieces[1].groups[0].append(pieces[0])
                 else:
-                    self.point_groups.append(PointGroup(pieces))
+                    self.groups.append(TrackGroup(pieces))
                     # print(self.point_groups)
 
                     # def iter_from(self, coord, reverse=False):
@@ -194,7 +195,8 @@ class PointManager:
     pass
 
 
-class PointGroup:
+class TrackGroup:
+    """A group of track pieces (primarily points) that act in unison."""
     def __init__(self, pieces):
         self.all = list(pieces)
         self.points = [x for x in self.all if isinstance(x, Point)]
@@ -202,6 +204,7 @@ class PointGroup:
         self.other = [x for x in self.all if x not in self.points or x not in self.crossover]
         self.image_ids = []
         self.canvases = set()
+        self.signal_managers = []
         for item in self.all:
             item.groups.append(self)
             self.canvases.add(item.canvas)
@@ -211,21 +214,27 @@ class PointGroup:
         for canvas in self.canvases:
             for id in self.image_ids:
                 canvas.tag_bind(id, "<Button-1>", self.on_click)
-# Currently hover will be called twice for point the mouse is over, the second call having no affect on display
+                # Currently hover will be called twice for piece the mouse is over, the second call having no affect on display
                 canvas.tag_bind(id, "<Enter>", self.hover, "+")
                 canvas.tag_bind(id, "<Leave>", self.hover, "+")
-        print(self.all)
 
     def on_click(self, event):
         print(self, "Clicked")
+        labels = []
         for item in self.all:
             item.on_click(event)
+            labels.append(item.label)
+        for signal_manager in self.signal_managers:
+            for label in labels:
+                for signal in signal_manager.track_label_interlock[label]:
+                    signal.interlock_red()
 
     def hover(self, event):
         for item in self.all:
             item.hover(event)
 
     def append(self, other):
+        """Add a new track piece to the group"""
         self.all.append(other)
         if isinstance(other, Point):
             self.points.append(other)
@@ -243,14 +252,17 @@ class PointGroup:
             other.canvas.tag_bind(id, "<Leave>", self.hover, "+")
 
     def __repr__(self):
-        return "PointGroup({})".format(self.all)
+        return "TrackGroup({})".format(self.all)
 
 
 class SignalManager:
     def __init__(self, trackmanager, canvas, filename):
         self.track_manager = trackmanager
+        for group in trackmanager.groups:
+            group.signal_managers.append(self)
         self.canvas = canvas
         self.all = {}
+        self.track_label_interlock = defaultdict(list)
         self.load(filename)
 
     def load(self, filename):
@@ -264,7 +276,6 @@ class SignalManager:
         label_re = re.compile(r'"[^"]*"')
         with open(filename) as f:
             for line in f:
-                print(line)
                 line = line.strip("\n").strip()
                 if not line:
                     continue
@@ -287,15 +298,14 @@ class SignalManager:
                     track_pos = getattr(track_segment, groupdict["start"].lower())
                     if groupdict["start"] == "Start":
                         track_dir = (track_segment.end[0] - track_pos[0], track_segment.end[1] - track_pos[1])
-                    elif groupdict["start"] == "Alternate" and isinstance(track_segment,
-                                                                          Point) and not track_segment.facing:
+                    elif groupdict["start"] == "Alternate" and isinstance(track_segment, Point) \
+                            and not track_segment.facing:
                         track_dir = (track_pos[0] - track_segment.end[0], track_pos[1] - track_segment.end[1])
                     else:
                         track_dir = (track_pos[0] - track_segment.start[0], track_pos[1] - track_segment.start[1])
                     # Normalise
                     track_dir_size = (track_dir[0] ** 2 + track_dir[1] ** 2) ** 0.5
                     track_dir = (track_dir[0] / track_dir_size, track_dir[1] / track_dir_size)
-                    print(track_dir)
                     if groupdict["position"] == "Right":
                         # Normal by (x,y) => (-y, x)
                         light_pos = (track_pos[0] - 10 * track_dir[1], track_pos[1] + 10 * track_dir[0])
@@ -308,10 +318,11 @@ class SignalManager:
                                                               "self.track_manager.track_labels[{}]".format(label))
                     red_condition = re.sub(r'("[^"]*"\])\s*([0-1])', r'\1.set == \2', red_condition)
                     if red_condition:
-                        print(red_condition, eval(red_condition))
-                    self.all[groupdict["signal_label"]] = Signal(self.canvas, light_pos, self.track_manager,
-                                                                 red_condition)
-
+                        eval(red_condition)
+                    signal = Signal(self.canvas, light_pos, self.track_manager, red_condition)
+                    self.all[groupdict["signal_label"]] = signal
+                    for label in set(label_re.findall(red_condition)):
+                        self.track_label_interlock[label.strip("\"")].append(signal)
 
 
 class TrackSyntaxError(Exception):

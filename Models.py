@@ -29,6 +29,7 @@ class Track(object):
         return self.start, self.end
 
     def next(self, reverse):
+        """Called when TrackManager iterates through by direction"""
         return self.start if reverse else self.end
 
     def create(self):
@@ -36,9 +37,11 @@ class Track(object):
         raise NotImplementedError
 
     def on_click(self, event):
+        """Hook for subclasses"""
         pass
 
     def hover(self, event):
+        """Hook for subclasses"""
         pass
 
     def __repr__(self):
@@ -218,7 +221,11 @@ class Signal:
 
     def interlock_red(self):
         if self.red_conditions and eval(self.red_conditions):
-            self.canvas.itemconfig(self.image_id, fill="Red", width=4)
+            print("Interlocked")
+            self.set = 0
+            self.draw()
+            # Flash
+            self.canvas.itemconfig(self.image_id, width=4)
             self.canvas.after(100, lambda: self.canvas.itemconfig(self.image_id, width=0))
             return False
         return True
