@@ -6,8 +6,9 @@ from CreateToolTip import create_tool_tip
 
 class Track(object):
     """A piece of Track will have a start and end.
-    Direction indicates normal running direction, which must be either clockwise(1) or anti-clockwise(-1). Sidings
-    direction is defined as the direction of the loop it comes off, so will terminate at .end
+    Direction indicates normal running direction (from start to end), which must be either clockwise(1) or 
+    anti-clockwise(-1). Sidings direction is defined as the direction of the loop it comes off for facing points or 
+    joins onto for trailing points.
     """
 
     def __init__(self, canvas, branch, direction, start, end, groups=None, label=""):
@@ -20,8 +21,8 @@ class Track(object):
         self.groups = groups if groups is not None else []
         self.label = label
         self.image_ids = self.create()
-        for id in self.image_ids:
-            create_tool_tip(self.canvas, id, str(self))
+        for image_id in self.image_ids:
+            create_tool_tip(self.canvas, image_id, str(self))
 
     @property
     def coordinates(self):
@@ -44,7 +45,7 @@ class Track(object):
         """Hook for subclasses"""
         pass
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{name}{coord}".format(name=self.__class__.__name__, coord=self.coordinates)
 
     def __str__(self):
@@ -55,10 +56,6 @@ class Track(object):
 
 
 class Straight(Track):
-    # def __init__(self, canvas, branch, start, end, direction=0):
-    #     super(Straight, self).__init__(canvas, branch, start, end, direction)
-    #     self.direction = direction
-
     def create(self):
         ids = namedtuple("image_ids", ["main"])
         return ids(self.canvas.create_line(self.start, self.end))
@@ -85,7 +82,6 @@ class Curve(Track):
 
 
     def create(self):
-        # TODO: Make curved (smooth=True?)
         tangent = (self.start[1] - self.end[1], self.end[0] - self.start[0])
         midpoint = ((self.start[0] + self.end[0])/2, (self.start[1] + self.end[1])/2)
         if self.left_right == "R":
@@ -152,7 +148,7 @@ class Point(Track):
         self.draw()
 
     def hover(self, event):
-        #Enter is type 7, leave is type 8
+        # Enter is type 7, leave is type 8
         if event.type == "7":
             if self.set:
                 self.canvas.itemconfig(self.image_ids[0], fill="Green", width=1.5)
@@ -187,41 +183,31 @@ class Crossover(Point):
         ids = namedtuple("image_ids", ["main", "alt"])
         return ids(id1, id2)
 
-    # def draw(self):
-    #     if self.set:
-    #         self.canvas.itemconfig(self.image_ids[0], dash=[1], fill="Red")
-    #         self.canvas.itemconfig(self.image_ids[1], dash=[], fill="Black")
-    #     else:
-    #         self.canvas.itemconfig(self.image_ids[0], dash=[], fill="Black")
-    #         self.canvas.itemconfig(self.image_ids[1], dash=[1], fill="Red")
-    #
-    # def on_click(self, event):
-    #     self.set = not self.set
-    #     print("Set:", self, self.set)
-    #     self.draw()
-
     @property
     def coordinates(self):
         return self.start, self.end, self.altstart, self.altend
 
 
 class Signal:
-    def __init__(self, canvas, pos, track_manager, red_conditions):
+    def __init__(self, canvas, pos, track_manager, red_conditions, label):
         self.canvas = canvas
         self.pos = pos
         self.track_manager = track_manager
         self.image_id = self.create()
         self.set = False
         self.red_conditions = red_conditions
+        self.label = label
         self.canvas.tag_bind(self.image_id, "<Button-1>", self.on_click)
+        create_tool_tip(self.canvas, self.image_id, str(self))
 
     def create(self):
         return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
                                        fill="Red", outline="Red", width=0)
 
     def interlock_red(self):
+        """Checks if track forces the signal to be red"""
         if self.red_conditions and eval(self.red_conditions):
-            print("Interlocked")
+            print("Interlocked:", self)
             self.set = 0
             self.draw()
             # Flash
@@ -231,7 +217,7 @@ class Signal:
         return True
 
     def on_click(self, event):
-        #TODO: Check can be set with segment
+        """Checks and changes signal state"""
         if self.set:
             self.set = 0
         else:
@@ -243,3 +229,12 @@ class Signal:
             self.canvas.itemconfig(self.image_id, fill="Green", outline="Green")
         else:
             self.canvas.itemconfig(self.image_id, fill="Red", outline="Red")
+
+    def __repr__(self) -> str:
+        return "{name}{coord}".format(name=self.__class__.__name__, coord=self.pos)
+
+    def __str__(self):
+        if self.label:
+            return "{name} {label}".format(name="Signal", label=self.label)
+        else:
+            return self.__repr__()

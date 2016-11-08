@@ -8,10 +8,10 @@ from ResizingCanvas import ResizingCanvas
 class TrackManager(object):
     # TODO: Fix docstring for new spec
     """A central class for the whole layout."""
-
     def __init__(self, canvas, filename="", auto_group=True):
         # Create Track
         self.canvas = canvas
+        self.signal_managers = []
         self.track_labels = {}
         self.track_branches = self.load_track(filename)
         self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
@@ -156,12 +156,13 @@ class TrackManager(object):
         return out
 
     def auto_point_group(self):
+        """Groups points and crossovers that join at at least 1 alt coordinate."""
         for coord, pieces in self.coordinate_dict.items():
             if ((isinstance(pieces[0], Point) or isinstance(pieces[0], Crossover)) and
                     (isinstance(pieces[1], Point) or isinstance(pieces[1], Crossover)) and not
-                (coord in (pieces[0].start, pieces[0].end) and
-                         coord in (pieces[1].start, pieces[1].end))):
+            (coord in (pieces[0].start, pieces[0].end) and coord in (pieces[1].start, pieces[1].end))):
                 if pieces[0].groups and pieces[1].groups:
+                    # TODO: join groups together for more complex layout options.
                     print(pieces, coord)
                     raise Exception("Autogrouping error: both already in groups")
                 elif pieces[0].groups:
@@ -197,6 +198,7 @@ class PointManager:
 
 class TrackGroup:
     """A group of track pieces (primarily points) that act in unison."""
+
     def __init__(self, pieces):
         self.all = list(pieces)
         self.points = [x for x in self.all if isinstance(x, Point)]
@@ -214,12 +216,12 @@ class TrackGroup:
         for canvas in self.canvases:
             for id in self.image_ids:
                 canvas.tag_bind(id, "<Button-1>", self.on_click)
-                # Currently hover will be called twice for piece the mouse is over, the second call having no affect on display
+                # Currently hover will be called twice for the piece the mouse is over, the second call having no affect
+                #  on the display
                 canvas.tag_bind(id, "<Enter>", self.hover, "+")
                 canvas.tag_bind(id, "<Leave>", self.hover, "+")
 
     def on_click(self, event):
-        print(self, "Clicked")
         labels = []
         for item in self.all:
             item.on_click(event)
@@ -258,6 +260,7 @@ class TrackGroup:
 class SignalManager:
     def __init__(self, trackmanager, canvas, filename):
         self.track_manager = trackmanager
+        track_manager.signal_managers.append(self)
         for group in trackmanager.groups:
             group.signal_managers.append(self)
         self.canvas = canvas
@@ -319,7 +322,8 @@ class SignalManager:
                     red_condition = re.sub(r'("[^"]*"\])\s*([0-1])', r'\1.set == \2', red_condition)
                     if red_condition:
                         eval(red_condition)
-                    signal = Signal(self.canvas, light_pos, self.track_manager, red_condition)
+                    signal = Signal(self.canvas, light_pos, self.track_manager, red_condition,
+                                    groupdict["signal_label"])
                     self.all[groupdict["signal_label"]] = signal
                     for label in set(label_re.findall(red_condition)):
                         self.track_label_interlock[label.strip("\"")].append(signal)
