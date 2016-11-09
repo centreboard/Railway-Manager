@@ -14,7 +14,7 @@ class TrackManager(object):
         self.canvas = canvas
         self.signal_managers = []
         self.track_labels = {}
-        self.track_branches = self.load_track(filename)
+        self.track_branches = self.load_track(filename, auto_group)
         self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
         self.coordinate_dict = defaultdict(self.nonenone)
         for piece in self.track_pieces:
@@ -28,12 +28,15 @@ class TrackManager(object):
         self.groups = []
         if auto_group:
             self.auto_point_group()
+            for piece in self.track_pieces:
+                if isinstance(piece, Point) and not piece.groups:
+                    self.groups.append(TrackGroup((piece,)))
 
     @staticmethod
     def nonenone():
         return [None, None]
 
-    def load_track(self, filename):
+    def load_track(self, filename, auto_group):
         out = defaultdict(list)
         track_name_re = re.compile(r"NEW::\s*([^(]*)\(")
         # Splits at spaces outside of brackets, and also at outermost brackets
@@ -123,7 +126,7 @@ class TrackManager(object):
                             # All track pieces are start, end then optional further arguments
                             # noinspection PyUnboundLocalVariable
                             new_piece = piece(self.canvas, current_track, direction, last_coord,
-                                              next_coord, *arguments, label=label)
+                                              next_coord, *arguments, label=label, click=not auto_group)
                             out[current_track].append(new_piece)
                             self.track_labels[label] = new_piece
                             last_coord = next_coord
@@ -146,7 +149,7 @@ class TrackManager(object):
                                 end_coord = out[current_track][0].start
                                 # noinspection PyUnboundLocalVariable
                                 out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
-                                                                end_coord, *arguments))
+                                                                end_coord, *arguments, label=label, click=not auto_group))
                                 current_track = None
                         elif text.startswith("\""):
                             label = text.strip("\"")
@@ -215,8 +218,6 @@ class TrackGroup:
                 self.image_ids.append(image_id)
                 item.canvas.itemconfig(image_id, tag=str(self))
                 item.canvas.tag_bind(image_id, "<Button-1>", self.on_click)
-                # Currently hover will be called twice for the piece the mouse is over, the second call having no affect
-                #  on the display
                 item.canvas.tag_bind(image_id, "<Enter>", self.hover, "+")
                 item.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 

@@ -3,7 +3,7 @@
 # (x, y) Piece[Arguments] "Label" (x, y) Piece etc.
 # where (x, y) are coordinates for the start/end of a piece, with the next piece starting where the previous finished.
 # Piece can be Straight(St), Curve(Cv), Point(Pt) or Crossover(xx)
-# [Arguments] are extra details, which may be optional, e.g. a curve defualts in the track direction
+# [Arguments] are extra details, which may be optional, e.g. a curve defaults in the track direction
 # "Label" is an optional unique track label for the piece to interact with accessories and neater printing.
 
 

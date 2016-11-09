@@ -11,7 +11,7 @@ class Track(object):
     joins onto for trailing points.
     """
 
-    def __init__(self, canvas, branch, direction, start, end, groups=None, label=""):
+    def __init__(self, canvas, branch, direction, start, end, groups=None, label="", click=True):
         self.conflict = False
         self.branch = branch
         self.start = start
@@ -62,7 +62,7 @@ class Straight(Track):
 
 
 class Curve(Track):
-    def __init__(self, canvas, branch, direction, start, end, left_right="", factor=4, label=""):
+    def __init__(self, canvas, branch, direction, start, end, left_right="", factor=4, label="", click=True):
         self.factor = factor / 10
         if str(direction).lower() in ("1", "clockwise"):
             direction = 1
@@ -78,7 +78,7 @@ class Curve(Track):
             self.left_right = l_r
         else:
             raise Exception("Curve not defined as L or R")
-        super().__init__(canvas, branch, direction, start, end, label=label)
+        super().__init__(canvas, branch, direction, start, end, label=label, click=click)
 
     def create(self):
         tangent = (self.start[1] - self.end[1], self.end[0] - self.start[0])
@@ -92,16 +92,16 @@ class Curve(Track):
 
 
 class Point(Track):
-    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1, label=""):
+    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1, label="", click=True):
         self.alternate = alternate
         self.facing = facing
         self.set = 0
-        super().__init__(canvas, branch, direction, start, end, label=label)
-
-        for imageID in self.image_ids:
-            self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
-            self.canvas.tag_bind(imageID, "<Enter>", self.hover, "+")
-            self.canvas.tag_bind(imageID, "<Leave>", self.hover, "+")
+        super().__init__(canvas, branch, direction, start, end, label=label, click=click)
+        if click:
+            for imageID in self.image_ids:
+                self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
+                self.canvas.tag_bind(imageID, "<Enter>", self.hover, "+")
+                self.canvas.tag_bind(imageID, "<Leave>", self.hover, "+")
 
     @property
     def coordinates(self):
@@ -170,11 +170,11 @@ class Point(Track):
 
 
 class Crossover(Point):
-    def __init__(self, canvas, branch, direction, start, end, altstart, altend, label=""):
+    def __init__(self, canvas, branch, direction, start, end, altstart, altend, label="", click=True):
         self.altstart = altstart
         self.altend = altend
         self.set = False
-        super().__init__(canvas, branch, direction, start, end, None, label=label)
+        super().__init__(canvas, branch, direction, start, end, None, label=label, click=click)
 
     def create(self):
         id1 = self.canvas.create_line(self.start, self.end)
