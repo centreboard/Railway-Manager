@@ -4,9 +4,11 @@ from ResizingCanvas import ResizingCanvas
 
 
 class Train:
-    def __init__(self, canvas, track_manager, pos, direction):
+    def __init__(self, canvas, track_manager, pos, direction, colour="Blue"):
+        self.size = 4
         self.canvas = canvas
         self.track_manager = track_manager
+        self.colour = colour
         self.pos = list(pos)
         coord = tuple(pos)
         if coord not in self.track_manager.coordinate_dict:
@@ -32,8 +34,9 @@ class Train:
         self.canvas.after(10, self.move)
 
     def create(self):
-        return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
-                                       fill="Blue")
+        return self.canvas.create_oval((self.pos[0] - self.size, self.pos[1] - self.size),
+                                       (self.pos[0] + self.size, self.pos[1] + self.size),
+                                       fill=self.colour)
 
     def move(self):
 
@@ -70,9 +73,14 @@ class Train:
             dx = self.segment_end[0] - self.pos[0]
             dy = self.segment_end[1] - self.pos[1]
             normalise = (dx**2 + dy **2)**0.5
-            self.canvas.move(self.image_id, dx/normalise, dy/normalise)
+            #self.canvas.move(self.image_id, dx/normalise, dy/normalise)
             self.pos[0] += dx/normalise
             self.pos[1] += dy/normalise
+            print(self.canvas.wscale, self.canvas.hscale)
+            self.canvas.coords(self.image_id, (self.pos[0] - self.size)*self.canvas.wscale,
+                               (self.pos[1] - self.size)*self.canvas.hscale,
+                               (self.pos[0] + self.size)*self.canvas.wscale,
+                               (self.pos[1] + self.size)*self.canvas.hscale)
 
         self.canvas.after(10, self.move)
 
@@ -87,6 +95,7 @@ if __name__ == "__main__":
     track_manager = TrackManager(C, "Loft.track")
     signal_manager = SignalManager(track_manager, C, "Loft.accessory")
     C.pack(fill="both", expand="yes")
-    train = Train(C, track_manager, (950, 575), 1)
+    fast_up_train = Train(C, track_manager, (325, 575), 1)
+    fast_down_train = Train(C, track_manager, (700, 525), -1, "Purple")
     root.mainloop()
     print("Done")

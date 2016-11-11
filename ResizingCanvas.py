@@ -10,13 +10,15 @@ class ResizingCanvas(Canvas):
         self.bind("<Configure>", self.on_resize)
         self.height = self.winfo_reqheight()
         self.width = self.winfo_reqwidth()
-        self.n = 0
+        self.wscale = 1
+        self.hscale = 1
 
     def on_resize(self, event):
         # determine the ratio of old width/height to new width/height
         wscale = float(event.width) / self.width
         hscale = float(event.height) / self.height
-        self.n += 1
+        self.wscale *= wscale
+        self.hscale *= hscale
         # print("Resize", self.n, event.width == self.width, event.height, self.height, wscale, hscale)
         self.width = event.width
         self.height = event.height
