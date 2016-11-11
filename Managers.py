@@ -253,13 +253,18 @@ class TrackGroup:
 
     def on_click(self, event):
         labels = []
-        for item in self.all:
-            item.on_click(event)
-            labels.append(item.label)
-        if self.signal_manager is not None:
-            for label in labels:
-                for signal in self.signal_manager.track_label_interlock[label]:
-                    signal.interlock_red()
+        #Don't change if train in section
+        if any((x.train_in for x in self.all)):
+            print("Train in section")
+        else:
+            for item in self.all:
+                item.on_click(event)
+                labels.append(item.label)
+            if self.signal_manager is not None:
+                for label in labels:
+                    for signal in self.signal_manager.track_label_interlock[label]:
+                        signal.interlock_red()
+
 
     def hover(self, event):
         for item in self.all:

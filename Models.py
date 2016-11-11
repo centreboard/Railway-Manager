@@ -20,6 +20,7 @@ class Track(object):
         self.direction = direction
         self.groups = groups if groups is not None else []
         self.label = label
+        self.train_in = False
         self.image_ids = self.create()
         for image_id in self.image_ids:
             create_tool_tip(self.canvas, image_id, str(self))
@@ -176,6 +177,7 @@ class Crossover(Point):
         self.altend = altend
         self.set = False
         super().__init__(canvas, branch, direction, start, end, None, label=label, click=click)
+        del self.alternate
 
     def create(self):
         id1 = self.canvas.create_line(self.start, self.end)
