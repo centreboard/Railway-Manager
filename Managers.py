@@ -12,7 +12,7 @@ class TrackManager(object):
     def __init__(self, canvas, filename="", auto_group=True):
         # Create Track
         self.canvas = canvas
-        self.signal_managers = []
+        self.signal_manager = None
         self.track_labels = {}
         self.track_branches = self.load_track(filename, auto_group)
         self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
@@ -177,7 +177,37 @@ class TrackManager(object):
                     self.groups.append(TrackGroup(pieces))
                     # print(self.point_groups)
 
-    # def iter_from(self, coord, reverse=False):
+    def iter_from(self, coord, direction):
+        coord = tuple(coord)
+        if coord not in self.coordinate_dict:
+            raise KeyError(coord)
+        else:
+            piece_list = self.coordinate_dict[coord]
+            if None in piece_list:
+                track_segment = next((x for x in piece_list if x is not None))
+            else:
+                if piece_list[0].direction == piece_list[1].direction: # The common case
+                    if direction == piece_list[0].direction:
+                        track_segment = next((x for x in piece_list if x.start == coord))
+                    else:
+                        #TODO: Cope with alternates
+                        track_segment = next((x for x in piece_list if x.end == coord))
+                else:
+                    raise NotImplementedError
+        while track_segment is not None:
+            yield track_segment
+            segment_end = track_segment.next(coord)
+            if segment_end is not None:
+                track_segment = next((x for x in self.coordinate_dict[segment_end] if x is not track_segment))
+            else:
+                track_segment = None
+
+
+
+        temp = [x for x in self.coordinate_dict[self.segment_pos] if x is not self.track_segment]
+        self.track_segment = temp[0]
+        self.segment_pos = self.track_segment.next(self.segment_pos)
+        print(self.track_segment)
     # TODO: Rewrite this
     # """Iterates through track pieces, stating from a coordinate.
     # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
@@ -210,7 +240,7 @@ class TrackGroup:
         self.other = [x for x in self.all if x not in self.points or x not in self.crossover]
         self.image_ids = []
         self.canvases = set()
-        self.signal_managers = []
+        self.signal_manager = None
         for item in self.all:
             item.groups.append(self)
             self.canvases.add(item.canvas)
@@ -226,9 +256,9 @@ class TrackGroup:
         for item in self.all:
             item.on_click(event)
             labels.append(item.label)
-        for signal_manager in self.signal_managers:
+        if self.signal_manager is not None:
             for label in labels:
-                for signal in signal_manager.track_label_interlock[label]:
+                for signal in self.signal_manager.track_label_interlock[label]:
                     signal.interlock_red()
 
     def hover(self, event):
@@ -258,11 +288,11 @@ class TrackGroup:
 
 
 class SignalManager:
-    def __init__(self, trackmanager, canvas, filename):
-        self.track_manager = trackmanager
-        track_manager.signal_managers.append(self)
-        for group in trackmanager.groups:
-            group.signal_managers.append(self)
+    def __init__(self, track_manager, canvas, filename):
+        self.track_manager = track_manager
+        track_manager.signal_manager = self
+        for group in track_manager.groups:
+            group.signal_manager = self
         self.canvas = canvas
         self.all = {}
         self.track_label_interlock = defaultdict(list)
@@ -321,8 +351,10 @@ class SignalManager:
                                                               "self.track_manager.track_labels[{}]".format(label))
                     red_condition = re.sub(r'("[^"]*"\])\s*([0-1])', r'\1.set == \2', red_condition)
                     if red_condition:
+                        # Check it is valid statement
                         eval(red_condition)
-                    signal = Signal(self.canvas, light_pos, self.track_manager, red_condition,
+                    direction = track_segment.direction
+                    signal = Signal(self.canvas, direction, light_pos, self.track_manager, red_condition,
                                     groupdict["signal_label"])
                     self.all[groupdict["signal_label"]] = signal
                     for label in set(label_re.findall(red_condition)):

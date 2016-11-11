@@ -29,9 +29,9 @@ class Track(object):
         """Returns all the coordinates of endpoints"""
         return self.start, self.end
 
-    def next(self, reverse):
-        """Called when TrackManager iterates through by direction"""
-        return self.start if reverse else self.end
+    def next(self, entry):
+        """Called when TrackManager iterates through by from entry coordinates"""
+        return self.start if tuple(entry) == self.end else self.end
 
     def create(self):
         """Create and Return an iterable of ids of line segments that make up the image on the canvas"""
@@ -107,22 +107,23 @@ class Point(Track):
     def coordinates(self):
         return self.start, self.end, self.alternate
 
-    def next(self, reverse):
+    def next(self, entry):
         """Returns the coordinates of the other end of the piece depending how the points are set."""
+        entry = tuple(entry)
         if self.facing:
-            if reverse:
-                return self.start
-            elif self.set:
-                return self.alternate
+            if entry == self.start:
+                return self.alternate if self.set else self.end
+            elif entry == self.end:
+                return None if self.set else self.start
             else:
-                return self.end
+                return self.start if self.set else None
         else:
-            if not reverse:
-                return self.start
-            elif self.set:
-                return self.alternate
+            if entry == self.end:
+                return self.alternate if self.set else self.start
+            elif entry == self.start:
+                return None if self.set else self.end
             else:
-                return self.end
+                return self.end if self.set else None
 
     def create(self):
         main_id = self.canvas.create_line(self.start, self.end)
@@ -186,10 +187,29 @@ class Crossover(Point):
     def coordinates(self):
         return self.start, self.end, self.altstart, self.altend
 
+    def next(self, entry):
+        entry = tuple(entry)
+        if self.set:
+            if entry == self.altstart:
+                return self.altend
+            elif entry == self.altend:
+                return self.altstart
+            else:
+                return None
+        else:
+            if entry == self.start:
+                return self.end
+            elif entry == self.end:
+                return self.start
+            else:
+                return None
+
+
 
 class Signal:
-    def __init__(self, canvas, pos, track_manager, red_conditions, label):
+    def __init__(self, canvas, direction, pos, track_manager, red_conditions, label):
         self.canvas = canvas
+        self.direction = direction
         self.pos = pos
         self.track_manager = track_manager
         self.image_id = self.create()
