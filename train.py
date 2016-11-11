@@ -76,7 +76,6 @@ class Train:
             #self.canvas.move(self.image_id, dx/normalise, dy/normalise)
             self.pos[0] += dx/normalise
             self.pos[1] += dy/normalise
-            print(self.canvas.wscale, self.canvas.hscale)
             self.canvas.coords(self.image_id, (self.pos[0] - self.size)*self.canvas.wscale,
                                (self.pos[1] - self.size)*self.canvas.hscale,
                                (self.pos[0] + self.size)*self.canvas.wscale,
