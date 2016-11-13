@@ -8,7 +8,8 @@
 
 
 NEW::UpFast(Clockwise)
-(50, 25) Straight (950, 25) Curve[R] (975, 50) Straight (975, 350) Point[(950, 375), 1] "R5a" (975, 400) Straight (975, 550)
+(50, 25) Straight (500, 25) Straight (950, 25) Curve[R] (975, 50) Straight (975, 350) Point[(950, 375), 1] "R5a"
+(975, 400) Straight (975, 550)
 Curve[R] (950, 575) Straight (825, 575) Point[(800, 550), 1] "R2a" (800, 575) Straight (750, 575) Point[(725, 550), 0]
 "R1a" (700, 575) Straight (325, 575) Point[(300, 550), 1] "L1a" (275, 575) Point[(250, 550), 0] "L2a" (225, 575)
  Point[(200, 550), 0] "L3a" (175, 575) Straight (50, 575) Curve[R] (25, 550) Straight (25, 50) Curve
@@ -19,7 +20,7 @@ NEW::DownFast(Anticlockwise)
 Crossover[(200, 550), (250, 500)] "L3c"(250, 525)  Point[(250, 550), 0] "L2b" (275, 525)  Point[(300, 550), 1] "L1b" (325, 525)
 Straight (700, 525)  Point[(725, 550), 0] "R1b" (750, 525)  Crossover[(800, 550), (750, 500)] "R2c" (800, 525)
 Point[(800, 500), 0] "R3a" (825, 525) Straight (900, 525) Curve[L] (925, 500) Straight (925, 400)  Point[(950, 375), 1] "R5b"
-(925, 350) Straight(925, 100) Curve[L] (900, 75) Straight (100, 75) Curve[L]
+(925, 350) Straight(925, 100) Curve[L] (900, 75) Straight (500, 75) Straight (100, 75) Curve[L]
 ::CLOSE
 
 NEW::UpSlow(Clockwise)
@@ -34,8 +35,17 @@ Straight (125, 150) Curve
 NEW::DownSlow(Anticlockwise)
 (175, 200) Straight (175, 350) Point[(200, 375), 1] "B1" (175, 380) Straight (175, 400) Curve (200, 425) Point[(200, 450), 0] "L5b"
 (225, 425) Point[(250, 450), 0] "L4b" (275, 425) Curve[L, 3] (300, 415) Curve[R, 3] (325, 405) Straight (650, 405) Curve[R, 3]
-(675, 415) Curve[L, 3] (700, 425) Point[(700, 400), 0] "St1" (725, 425) Point[(750, 450), 1] "R3b" (775, 425) Point[(800, 450)] "R4b"
+(675, 415) Curve[L, 3] (700, 425) Point[(710, 410), 0] "St1a" (725, 425) Point[(750, 450), 1] "R3b" (775, 425) Point[(800, 450)] "R4b"
 (800, 425) Curve (825, 400) Point[(850, 375), 0] "C2b" (825, 350) Point[(800, 325), 1] "C1" (825, 315) Straight (825, 200)
 Curve (800, 175) Straight (725, 175) Curve[L, 3] (700, 185) Curve[R, 3] (675, 195) Straight (500, 195) Curve[R, 3]
 (475, 185) Curve[L, 3] (450, 175) Point[(425, 150), 1] "U2b"(400, 175) Point[(375, 200)] "U1" (365, 175) Straight (200, 175) Curve
 ::CLOSE
+
+NEW:: Station(Anticlockwise)
+(325, 360) St "Platform 1"(660, 360) Point[(660, 380), 0] "St4" (680, 380) Point[(690, 360), 0] "St3" (690, 390) Point[(700, 370), 0] "St2"(700, 400)
+ Point[(725, 400), 1, 1] "St1b" (710, 410)
+::END
+
+NEW:: Platform2(Anticlockwise)
+(375, 380) Straight "Platform 2"(660, 380)
+::END

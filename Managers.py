@@ -1,8 +1,9 @@
 import tkinter
 import re
 from collections import defaultdict
-from Models import Straight, Curve, Point, Crossover, Signal
+from Models import Track, Straight, Curve, Point, Crossover, Signal
 from ResizingCanvas import ResizingCanvas
+from typing import Dict
 
 
 class TrackManager(object):
@@ -15,7 +16,7 @@ class TrackManager(object):
         self.signal_manager = None
         self.track_labels = {}
         self.track_branches = self.load_track(filename, auto_group)
-        self.track_pieces = set([x for _, v in self.track_branches.items() for x in v])
+        self.track_pieces = [x for _, v in self.track_branches.items() for x in v]
         self.coordinate_dict = defaultdict(self.nonenone)
         for piece in self.track_pieces:
             for coord in piece.coordinates:
@@ -34,9 +35,12 @@ class TrackManager(object):
 
     @staticmethod
     def nonenone():
+        """For default coordinate dictionary"""
         return [None, None]
 
-    def load_track(self, filename, auto_group):
+    def load_track(self, filename, auto_group) -> Dict[str, list]:
+        """Loads track from a text file. Returns a dictionary with keys being the name of track branches from the file
+        """
         out = defaultdict(list)
         track_name_re = re.compile(r"NEW::\s*([^(]*)\(")
         # Splits at spaces outside of brackets, and also at outermost brackets
@@ -44,12 +48,14 @@ class TrackManager(object):
         comma_split_re = re.compile(r"\([^)]*\)|[^\s,[(\]]+")
 
         def coord_handler(text):
+            """Checks and converts "(0, 1)" to (0, 1)"""
             if not re.match(r"^\(\s*[\d]+\s*,\s*[\d]+\)", text):
                 return None, None
             c1, c2 = (int(x) for x in text[1:-1].split(","))
             return c1, c2
 
         def argument_handler(text):
+            """Splits arguments by commas and converts to coords, integers or string as appropriate"""
             text_split = comma_split_re.findall(text)
             out = []
             for text_part in text_split:
@@ -63,6 +69,7 @@ class TrackManager(object):
             return out
 
         def piece_handler(text):
+            """Converts string to a piece class"""
             text = text.lower()
             possible = {"straight": Straight, "st": Straight, "point": Point, "pt": Point, "curve": Curve, "cv": Curve,
                         "crossover": Crossover, "xx": Crossover}
@@ -149,7 +156,8 @@ class TrackManager(object):
                                 end_coord = out[current_track][0].start
                                 # noinspection PyUnboundLocalVariable
                                 out[current_track].append(piece(self.canvas, current_track, direction, last_coord,
-                                                                end_coord, *arguments, label=label, click=not auto_group))
+                                                                end_coord, *arguments, label=label,
+                                                                click=not auto_group))
                                 current_track = None
                         elif text.startswith("\""):
                             label = text.strip("\"")
@@ -177,51 +185,36 @@ class TrackManager(object):
                     self.groups.append(TrackGroup(pieces))
                     # print(self.point_groups)
 
-    def iter_from(self, coord, direction):
-        coord = tuple(coord)
-        if coord not in self.coordinate_dict:
+    def piece_by_id(self, image_id):
+        return next(x for x in self.track_pieces if image_id in x.image_ids)
+
+    def iter_from(self, coord, direction) -> Track:
+        """Follows the track from a starting coordinate in a given direction"""
+        segment_end = tuple(coord)
+        if segment_end not in self.coordinate_dict:
             raise KeyError(coord)
         else:
-            piece_list = self.coordinate_dict[coord]
+            piece_list = self.coordinate_dict[segment_end]
             if None in piece_list:
                 track_segment = next((x for x in piece_list if x is not None))
             else:
-                if piece_list[0].direction == piece_list[1].direction: # The common case
+                if piece_list[0].direction == piece_list[1].direction:  # The common case
                     if direction == piece_list[0].direction:
-                        track_segment = next((x for x in piece_list if x.start == coord))
+                        track_segment = next((x for x in piece_list if x.start == segment_end))
                     else:
-                        #TODO: Cope with alternates
-                        track_segment = next((x for x in piece_list if x.end == coord))
+                        # TODO: Cope with alternates
+                        track_segment = next((x for x in piece_list if x.end == segment_end))
                 else:
                     raise NotImplementedError
         while track_segment is not None:
             yield track_segment
-            segment_end = track_segment.next(coord)
+            segment_end = track_segment.next(segment_end)
             if segment_end is not None:
                 track_segment = next((x for x in self.coordinate_dict[segment_end] if x is not track_segment))
             else:
                 track_segment = None
 
-
-
-        temp = [x for x in self.coordinate_dict[self.segment_pos] if x is not self.track_segment]
-        self.track_segment = temp[0]
-        self.segment_pos = self.track_segment.next(self.segment_pos)
-        print(self.track_segment)
-    # TODO: Rewrite this
-    # """Iterates through track pieces, stating from a coordinate.
-    # If reverse is false it goes from piece.start to piece.end (unless specified by piece to other such as
-    # piece.alternate)
-    # Returns track pieces, starting with the piece at the given coords."""
-    # i = 0 if reverse else 1
-    # piece = self.track[coord][i]
-    # while piece is not None:
-    #     yield piece
-    #     coordinates = piece.next(reverse)
-    #     i = 0 if reverse else 1
-    #     piece = self.track[coordinates][i]
-
-    def __iter__(self):
+    def __iter__(self) -> Track:
         for piece in self.track_pieces:
             yield piece
 
@@ -253,7 +246,7 @@ class TrackGroup:
 
     def on_click(self, event):
         labels = []
-        #Don't change if train in section
+        # Don't change if train in section
         if any((x.train_in for x in self.all)):
             print("Train in section")
         else:
@@ -264,7 +257,6 @@ class TrackGroup:
                 for label in labels:
                     for signal in self.signal_manager.track_label_interlock[label]:
                         signal.interlock_red()
-
 
     def hover(self, event):
         for item in self.all:
@@ -341,11 +333,11 @@ class SignalManager:
                         track_dir = (track_pos[0] - track_segment.end[0], track_pos[1] - track_segment.end[1])
                     else:
                         track_dir = (track_pos[0] - track_segment.start[0], track_pos[1] - track_segment.start[1])
-                    # Normalise
+                    # Normalise vector
                     track_dir_size = (track_dir[0] ** 2 + track_dir[1] ** 2) ** 0.5
                     track_dir = (track_dir[0] / track_dir_size, track_dir[1] / track_dir_size)
                     if groupdict["position"] == "Right":
-                        # Normal by (x,y) => (-y, x)
+                        # Get normal vector by (x,y) => (-y, x)
                         light_pos = (track_pos[0] - 10 * track_dir[1], track_pos[1] + 10 * track_dir[0])
                     else:
                         light_pos = (track_pos[0] + 10 * track_dir[1], track_pos[1] - 10 * track_dir[0])
@@ -359,8 +351,8 @@ class SignalManager:
                         # Check it is valid statement
                         eval(red_condition)
                     direction = track_segment.direction
-                    signal = Signal(self.canvas, direction, light_pos, self.track_manager, red_condition,
-                                    groupdict["signal_label"])
+                    signal = Signal(self.canvas, direction, light_pos, groupdict["start"].lower(),
+                                    self.track_manager, red_condition, groupdict["signal_label"])
                     self.all[groupdict["signal_label"]] = signal
                     for label in set(label_re.findall(red_condition)):
                         self.track_label_interlock[label.strip("\"")].append(signal)

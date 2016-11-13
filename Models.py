@@ -93,11 +93,13 @@ class Curve(Track):
 
 
 class Point(Track):
-    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1, label="", click=True):
+    def __init__(self, canvas, branch, direction, start, end, alternate, facing=1, set=0, label="", click=True):
         self.alternate = alternate
         self.facing = facing
-        self.set = 0
+        self.set = set
         super().__init__(canvas, branch, direction, start, end, label=label, click=click)
+        # For if initially set
+        self.draw()
         if click:
             for imageID in self.image_ids:
                 self.canvas.tag_bind(imageID, '<Button-1>', self.on_click)
@@ -209,10 +211,11 @@ class Crossover(Point):
 
 
 class Signal:
-    def __init__(self, canvas, direction, pos, track_manager, red_conditions, label):
+    def __init__(self, canvas, direction, position, track_relative_pos, track_manager, red_conditions, label):
         self.canvas = canvas
         self.direction = direction
-        self.pos = pos
+        self.position = position
+        self.track_relative_position = track_relative_pos
         self.track_manager = track_manager
         self.image_id = self.create()
         self.set = False
@@ -222,7 +225,7 @@ class Signal:
         create_tool_tip(self.canvas, self.image_id, str(self))
 
     def create(self):
-        return self.canvas.create_oval((self.pos[0] - 4, self.pos[1] - 4), (self.pos[0] + 4, self.pos[1] + 4),
+        return self.canvas.create_oval((self.position[0] - 4, self.position[1] - 4), (self.position[0] + 4, self.position[1] + 4),
                                        fill="Red", outline="Red", width=0)
 
     def interlock_red(self):
@@ -253,7 +256,7 @@ class Signal:
             self.canvas.itemconfig(self.image_id, fill="Red", outline="Red")
 
     def __repr__(self) -> str:
-        return "{name}{coord}".format(name=self.__class__.__name__, coord=self.pos)
+        return "{name}{coord}".format(name=self.__class__.__name__, coord=self.position)
 
     def __str__(self):
         if self.label:
