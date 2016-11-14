@@ -24,6 +24,7 @@ class Track(object):
         self.image_ids = self.create()
         for image_id in self.image_ids:
             create_tool_tip(self.canvas, image_id, str(self))
+            self.canvas.itemconfig(image_id, tag="Track")
 
     @property
     def coordinates(self):

@@ -12,18 +12,18 @@ class Train:
     Right click to change direction
     """
 
-    def __init__(self, canvas, track_manager, pos, direction, colour="Blue"):
+    def __init__(self, canvas, track_manager, pos, direction, colour="Blue", label=""):
         self.size = 4
         self.canvas = canvas
         self.track_manager = track_manager
         self.colour = colour
+        self.label = label
         self.pos = list(pos)
         coord = tuple(pos)
         if coord not in self.track_manager.coordinate_dict:
             near_id = self.canvas.find_closest(*self.pos)
             print(near_id)
             self.track_segment = self.track_manager.piece_by_id(near_id[0])
-            print(self.track_segment)
         else:
             piece_list = self.track_manager.coordinate_dict[coord]
             if None in piece_list:
@@ -42,8 +42,9 @@ class Train:
         self.segment_end = self.track_segment.next(pos)
         # Get the previous segment
         if self.segment_end is not None:
+            self.segment_start = self.track_segment.next(self.segment_end)
             self.previous_segment = next(
-                (x for x in self.track_manager.coordinate_dict[self.track_segment.next(self.segment_end)] if
+                (x for x in self.track_manager.coordinate_dict[self.segment_start] if
                  x is not self.track_segment))
         else:
             self.previous_segment = None
@@ -57,17 +58,47 @@ class Train:
         self.canvas.tag_bind(self.image_id, "<Button-1>", self.on_click)
         self.canvas.tag_bind(self.image_id, "<Button-3>", self.on_click)
         self.stop = False
+        self.next_section_occupied_flag = False
         self.canvas.after(10, self.move)
 
     def create(self) -> int:
         """Draw on the canvas, returning the id"""
         return self.canvas.create_oval((self.pos[0] - self.size, self.pos[1] - self.size),
                                        (self.pos[0] + self.size, self.pos[1] + self.size),
-                                       fill=self.colour)
+                                       fill=self.colour, width=1.3)
+
+    def draw(self):
+        """Edits the current image"""
+        if self.stop:
+            self.canvas.itemconfig(self.image_id, outline="Red")
+        else:
+            self.canvas.itemconfig(self.image_id, outline="Black")
 
     @property
     def next_section(self):
+        """Returns the next piece of track"""
         return next((x for x in self.track_manager.coordinate_dict[self.segment_end] if x is not self.track_segment))
+
+    @staticmethod
+    def close_to(x, y, diff=0.5):
+        """Works out if two 2-vectors are sufficiently close (for small errors introduced by corners)
+        """
+        if y[0] - diff <= x[0] <= y[0] + diff and y[1] - diff <= x[1] <= y[1] + diff:
+            return True
+        else:
+            return False
+
+    def on_click(self, event):
+        """Left click to stop/start, right click to change direction"""
+        if event.num == 1:
+            self.stop = not self.stop
+        else:
+            self.direction *= -1
+            self.segment_start, self.segment_end = self.segment_end, self.segment_start
+        self.draw()
+
+    def __str__(self):
+        return "Train {}({})".format(self.label, self.colour)
 
     def move(self):
         """Called by tkinter. Checks whether the train can move (e.g. if stopped by click, at a red signal, points set
@@ -78,16 +109,6 @@ class Train:
         if self.stop:
             self.canvas.after(10, self.move)
             return
-
-        def close_to(x, y, diff=0.5):
-            """Works out if two 2-vectors are sufficiently close (for small errors introduced by corners)
-            """
-            if y[0] - diff <= x[0] <= y[0] + diff and y[1] - diff <= x[1] <= y[1] + diff:
-                return True
-            else:
-                return False
-
-
 
         # Stop at red signals
         label = self.track_segment.label
@@ -105,22 +126,27 @@ class Train:
 
         if self.segment_end is None:
             self.segment_end = self.track_segment.next(self.pos)
-        elif tuple(self.pos) != self.segment_start and close_to(self.pos, self.segment_end):
+        elif self.close_to(self.pos, self.segment_end):
             next_section = self.next_section
             if next_section is None:
-                print("End of line")
+                print("End of line for", self)
                 self.stop = True
+                self.draw()
             elif next_section.train_in and next_section.train_in != self:
-                print("\rNext section occupied", end="")
+                if not self.next_section_occupied_flag:
+                    print("Next section occupied for", self)
+                    self.next_section_occupied_flag = True
             else:
+                self.next_section_occupied_flag = False
                 self.previous_segment = self.track_segment
                 self.track_segment = next_section
                 self.segment_start = self.segment_end
                 self.pos = list(self.segment_end)
                 self.segment_end = self.track_segment.next(self.segment_end)
-        elif close_to(self.pos, self.segment_end, 20) and self.next_section is not None and self.next_section.train_in \
-            and self.next_section.train_in.direction == -1 * self.direction:
+        elif self.close_to(self.pos, self.segment_end, 20) and self.next_section is not None and \
+                self.next_section.train_in and self.next_section.train_in.direction == -1 * self.direction:
             self.stop = True
+            self.draw()
             print("Stopped due to conflicting traffic approaching")
         else:
             self.track_segment.train_in = self
@@ -138,26 +164,18 @@ class Train:
                                (self.pos[1] + self.size) * self.canvas.hscale)
         self.canvas.after(10, self.move)
 
-    def on_click(self, event):
-        """Left click to stop/start, right click to change direction"""
-        if event.num == 1:
-            self.stop = not self.stop
-        else:
-            self.direction *= -1
-            self.segment_start, self.segment_end = self.segment_end, self.segment_start
-
 
 if __name__ == "__main__":
     root = tkinter.Tk()
     myframe = tkinter.Frame(root)
     myframe.pack(fill="both", expand="yes")
     root.wm_title("Railway Manager")
-    C = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
-    track_manager = TrackManager(C, "Loft.track")
-    signal_manager = SignalManager(track_manager, C, "Loft.accessory")
-    C.pack(fill="both", expand="yes")
-    fast_up_train = Train(C, track_manager, (325, 575), 1)
-    fast_down_train = Train(C, track_manager, (700, 525), -1, "Purple")
-    slow_down_train = Train(C, track_manager, (659, 380), -1, "Orange")
+    canvas = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
+    track_manager = TrackManager(canvas, "Loft.track")
+    signal_manager = SignalManager(track_manager, canvas, "Loft.accessory")
+    canvas.pack(fill="both", expand="yes")
+    fast_up_train = Train(canvas, track_manager, (325, 575), 1, "Blue", "Fast Up")
+    fast_down_train = Train(canvas, track_manager, (700, 525), -1, "Purple", "Fast Down")
+    slow_down_train = Train(canvas, track_manager, (659, 380), -1, "Orange", "Slow Down")
     root.mainloop()
     print("\nDone")
