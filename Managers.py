@@ -1,13 +1,11 @@
-import tkinter
+"""Classes controlling groups of models"""
 import re
 from collections import defaultdict
 from Models import Track, Straight, Curve, Point, Crossover, Signal
-from ResizingCanvas import ResizingCanvas
 from typing import Dict
 
 
 class TrackManager(object):
-    # TODO: Fix docstring for new spec
     """A central class for the whole layout."""
 
     def __init__(self, canvas, filename="", auto_group=True):
@@ -185,7 +183,7 @@ class TrackManager(object):
                     self.groups.append(TrackGroup(pieces))
                     # print(self.point_groups)
 
-    def piece_by_id(self, image_id):
+    def piece_by_id(self, image_id) -> Track:
         return next(x for x in self.track_pieces if image_id in x.image_ids)
 
     def iter_from(self, coord, direction) -> Track:
@@ -233,10 +231,16 @@ class TrackGroup:
         self.other = [x for x in self.all if x not in self.points or x not in self.crossover]
         self.image_ids = []
         self.canvases = set()
+        self.labels = []
+        self.invert = set()
         self.signal_manager = None
+        self.serial_manager = None
         for item in self.all:
             item.groups.append(self)
             self.canvases.add(item.canvas)
+            self.labels.append(item.label)
+            if item.set:
+                self.invert.add(item)
             for image_id in item.image_ids:
                 self.image_ids.append(image_id)
                 item.canvas.itemconfig(image_id, tag=str(self))
@@ -245,18 +249,32 @@ class TrackGroup:
                 item.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 
     def on_click(self, event):
-        labels = []
+        """Calls all pieces on_click method, forces signals to check if they should be red and outputs serial"""
         # Don't change if train in section
         if any((x.train_in for x in self.all)):
             print("Train in section")
         else:
             for item in self.all:
                 item.on_click(event)
-                labels.append(item.label)
             if self.signal_manager is not None:
-                for label in labels:
+                for label in self.labels:
                     for signal in self.signal_manager.track_label_interlock[label]:
                         signal.interlock_red()
+            if self.serial_manager is not None:
+                for item in self.points:
+                    self.serial_manager.write(item)
+
+    def set(self, state):
+        for item in self.all:
+            if item in self.invert:
+                item.set = not state
+            else:
+                item.set = state
+            item.draw()
+        if self.signal_manager is not None:
+            for label in self.labels:
+                for signal in self.signal_manager.track_label_interlock[label]:
+                    signal.interlock_red()
 
     def hover(self, event):
         for item in self.all:
@@ -365,16 +383,3 @@ class TrackSyntaxError(Exception):
 
 class AccessorySyntaxError(Exception):
     pass
-
-
-if __name__ == "__main__":
-    root = tkinter.Tk()
-    myframe = tkinter.Frame(root)
-    myframe.pack(fill="both", expand="yes")
-    root.wm_title("Railway Manager")
-    C = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
-    track_manager = TrackManager(C, "Loft.track")
-    signal_manager = SignalManager(track_manager, C, "Loft.accessory")
-    C.pack(fill="both", expand="yes")
-    root.mainloop()
-    print("Done")

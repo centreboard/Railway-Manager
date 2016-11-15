@@ -12,12 +12,13 @@ class Train:
     Right click to change direction
     """
 
-    def __init__(self, canvas, track_manager, pos, direction, colour="Blue", label=""):
+    def __init__(self, canvas, track_manager, pos, direction, colour="Blue", label="", speed=1.0):
         self.size = 4
         self.canvas = canvas
         self.track_manager = track_manager
         self.colour = colour
         self.label = label
+        self.speed = speed
         self.pos = list(pos)
         coord = tuple(pos)
         if coord not in self.track_manager.coordinate_dict:
@@ -98,7 +99,7 @@ class Train:
         self.draw()
 
     def __str__(self):
-        return "Train {}({})".format(self.label, self.colour)
+        return "Train {} ({})".format(self.label, self.colour)
 
     def move(self):
         """Called by tkinter. Checks whether the train can move (e.g. if stopped by click, at a red signal, points set
@@ -126,7 +127,7 @@ class Train:
 
         if self.segment_end is None:
             self.segment_end = self.track_segment.next(self.pos)
-        elif self.close_to(self.pos, self.segment_end):
+        elif self.close_to(self.pos, self.segment_end, 0.5*self.speed):
             next_section = self.next_section
             if next_section is None:
                 print("End of line for", self)
@@ -156,8 +157,8 @@ class Train:
             dy = self.segment_end[1] - self.pos[1]
             normalise = (dx ** 2 + dy ** 2) ** 0.5
             # self.canvas.move(self.image_id, dx/normalise, dy/normalise)
-            self.pos[0] += dx / normalise
-            self.pos[1] += dy / normalise
+            self.pos[0] += dx / normalise * self.speed
+            self.pos[1] += dy / normalise * self.speed
             self.canvas.coords(self.image_id, (self.pos[0] - self.size) * self.canvas.wscale,
                                (self.pos[1] - self.size) * self.canvas.hscale,
                                (self.pos[0] + self.size) * self.canvas.wscale,
@@ -167,15 +168,15 @@ class Train:
 
 if __name__ == "__main__":
     root = tkinter.Tk()
-    myframe = tkinter.Frame(root)
-    myframe.pack(fill="both", expand="yes")
+    frame = tkinter.Frame(root)
+    frame.pack(fill="both", expand="yes")
     root.wm_title("Railway Manager")
-    canvas = ResizingCanvas(myframe, bg="cyan", height=600, width=1000)
+    canvas = ResizingCanvas(frame, bg="cyan", height=600, width=1000)
     track_manager = TrackManager(canvas, "Loft.track")
     signal_manager = SignalManager(track_manager, canvas, "Loft.accessory")
     canvas.pack(fill="both", expand="yes")
-    fast_up_train = Train(canvas, track_manager, (325, 575), 1, "Blue", "Fast Up")
-    fast_down_train = Train(canvas, track_manager, (700, 525), -1, "Purple", "Fast Down")
+    fast_up_train = Train(canvas, track_manager, (325, 575), 1, "Blue", "Fast Up", 1.6)
+    fast_down_train = Train(canvas, track_manager, (700, 525), -1, "Purple", "Fast Down", 1.4)
     slow_down_train = Train(canvas, track_manager, (659, 380), -1, "Orange", "Slow Down")
     root.mainloop()
     print("\nDone")

@@ -222,23 +222,28 @@ class Signal:
         self.set = False
         self.red_conditions = red_conditions
         self.label = label
+        self.interlock_print_flag = True
         self.canvas.tag_bind(self.image_id, "<Button-1>", self.on_click)
         create_tool_tip(self.canvas, self.image_id, str(self))
 
-    def create(self):
-        return self.canvas.create_oval((self.position[0] - 4, self.position[1] - 4), (self.position[0] + 4, self.position[1] + 4),
+    def create(self) -> int:
+        return self.canvas.create_oval((self.position[0] - 4, self.position[1] - 4),
+                                       (self.position[0] + 4, self.position[1] + 4),
                                        fill="Red", outline="Red", width=0)
 
     def interlock_red(self):
         """Checks if track forces the signal to be red"""
         if self.red_conditions and eval(self.red_conditions):
-            print("Interlocked:", self)
+            if self.interlock_print_flag:
+                print("Interlocked:", self)
+                self.interlock_print_flag = False
             self.set = 0
             self.draw()
             # Flash
             self.canvas.itemconfig(self.image_id, width=4)
             self.canvas.after(100, lambda: self.canvas.itemconfig(self.image_id, width=0))
             return False
+        self.interlock_print_flag = True
         return True
 
     # noinspection PyUnusedLocal
