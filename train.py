@@ -3,6 +3,8 @@
 from Managers import TrackManager, SignalManager
 import tkinter
 from ResizingCanvas import ResizingCanvas
+import time
+import logging
 
 
 class Train:
@@ -20,6 +22,7 @@ class Train:
         self.label = label
         self.speed = speed
         self.pos = list(pos)
+        self.t = time.time()
         coord = tuple(pos)
         if coord not in self.track_manager.coordinate_dict:
             near_id = self.canvas.find_closest(*self.pos)
@@ -60,6 +63,9 @@ class Train:
         self.canvas.tag_bind(self.image_id, "<Button-3>", self.on_click)
         self.stop = False
         self.next_section_occupied_flag = False
+        self._seg_end_cache = self.segment_end
+        self._track_seg_cache = self.track_segment
+        self._next_segment = next((x for x in self.track_manager.coordinate_dict[self.segment_end] if x is not self.track_segment))
         self.canvas.after(10, self.move)
 
     def create(self) -> int:
@@ -78,7 +84,12 @@ class Train:
     @property
     def next_section(self):
         """Returns the next piece of track"""
-        return next((x for x in self.track_manager.coordinate_dict[self.segment_end] if x is not self.track_segment))
+        if self.segment_end != self._seg_end_cache or self.track_segment != self._track_seg_cache:
+            self._seg_end_cache = self.segment_end
+            self._track_seg_cache = self.track_segment
+            self._next_segment = next((x for x in self.track_manager.coordinate_dict[self.segment_end]
+                                       if x is not self.track_segment))
+        return self._next_segment
 
     @staticmethod
     def close_to(x, y, diff=0.5):
@@ -101,12 +112,22 @@ class Train:
     def __str__(self):
         return "Train {} ({})".format(self.label, self.colour)
 
+    def conflict(self, other):
+        self.stop = True
+        self.draw()
+        print(self, "Stopped due to conflicting traffic", other)
+
+
     def move(self):
         """Called by tkinter. Checks whether the train can move (e.g. if stopped by click, at a red signal, points set
         against or other train ahead) sets the current and previous tack pieces as occupied and moves an increment
         towards the end of the track piece.
         Finally sets itself to be called again after 10ms.
         """
+        t = time.time()
+        if t-self.t > 0.02:
+            logging.debug("{} delay between move calls {}".format(self, t-self.t))
+        self.t = t
         if self.stop:
             self.canvas.after(10, self.move)
             return
@@ -116,8 +137,7 @@ class Train:
         signal_manager = self.track_manager.signal_manager
         if label and signal_manager and label in signal_manager.all:
             signal = signal_manager.all[label]
-            # Held by signal that is next to the start track segment.
-            # Note this assumes signal is placed at segment start, which is default but not required.
+            # Held by signal that is next to the track segment.
             if signal.direction == self.direction and not signal.set and \
                tuple(self.pos) == getattr(self.track_segment, signal.track_relative_position):
                 # Check if points have changed
@@ -146,9 +166,8 @@ class Train:
                 self.segment_end = self.track_segment.next(self.segment_end)
         elif self.close_to(self.pos, self.segment_end, 20) and self.next_section is not None and \
                 self.next_section.train_in and self.next_section.train_in.direction == -1 * self.direction:
-            self.stop = True
-            self.draw()
-            print("Stopped due to conflicting traffic approaching")
+            self.conflict(self.next_section.train_in)
+            self.next_section.train_in.conflict(self)
         else:
             self.track_segment.train_in = self
             if self.previous_segment is not None and self.previous_segment.train_in == self:
@@ -167,6 +186,7 @@ class Train:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(filename="train.log", level="DEBUG")
     root = tkinter.Tk()
     frame = tkinter.Frame(root)
     frame.pack(fill="both", expand="yes")

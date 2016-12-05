@@ -248,7 +248,7 @@ class TrackGroup:
                 item.canvas.tag_bind(image_id, "<Enter>", self.hover, "+")
                 item.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 
-    def on_click(self, event):
+    def on_click(self, event=None):
         """Calls all pieces on_click method, forces signals to check if they should be red and outputs serial"""
         # Don't change if train in section
         if any((x.train_in for x in self.all)):
@@ -262,7 +262,7 @@ class TrackGroup:
                         signal.interlock_red()
             if self.serial_manager is not None:
                 for item in self.points:
-                    self.serial_manager.write(item)
+                    self.serial_manager.write_point(item)
 
     def set(self, state):
         for item in self.all:
@@ -298,6 +298,10 @@ class TrackGroup:
             other.canvas.tag_bind(image_id, "<Enter>", self.hover, "+")
             other.canvas.tag_bind(image_id, "<Leave>", self.hover, "+")
 
+    def __iter__(self):
+        for piece in self.all:
+            yield piece
+
     def __repr__(self):
         return "TrackGroup({})".format(self.all)
 
@@ -312,6 +316,7 @@ class SignalManager:
         self.all = {}
         self.track_label_interlock = defaultdict(list)
         self.load(filename)
+        print(self.track_label_interlock)
 
     def load(self, filename):
         signals_define = False

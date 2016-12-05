@@ -4,7 +4,11 @@
 # where (x, y) are coordinates for the start/end of a piece, with the next piece starting where the previous finished.
 # Piece can be Straight(St), Curve(Cv), Point(Pt) or Crossover(xx)
 # [Arguments] are extra details, which may be optional, e.g. a curve defaults in the track direction
-# "Label" is an optional unique track label for the piece to interact with accessories and neater printing.
+# "Label" is an optional unique track label for the piece to interact with accessories and for neater printing.
+# Finally ::CLOSE or ::END are key words to finish the track segment.
+# ::CLOSE is for a track loop with no (x, y) defined after the last Piece because it uses the coordinates of the start
+# of the segment.
+# ::END is for a terminating segment and is required to finish with (x, y) coordinates.
 
 
 NEW::UpFast(Clockwise)
@@ -42,7 +46,7 @@ Curve (800, 175) Straight (725, 175) Curve[L, 3] (700, 185) Curve[R, 3] (675, 19
 ::CLOSE
 
 NEW:: Station(Anticlockwise)
-(325, 360) St "Platform 1"(660, 360) Point[(660, 380), 0] "St4" (680, 380) Point[(690, 360), 0] "St3" (690, 390) Point[(700, 370), 0] "St2"(700, 400)
+(325, 360) St "Platform 1"(660, 360) Point[(660, 380), 0] "St3" (680, 380) Point[(700, 370), 0] "St2"(700, 400)
  Point[(725, 400), 1, 1] "St1b" (710, 410)
 ::END
 
